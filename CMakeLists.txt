@@ -36,11 +36,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             $<$<CONFIG:Release>:-O3>
             $<$<CONFIG:Release>:-march=native>
             $<$<CONFIG:Debug>:-g3>
-            $<$<CONFIG:Debug>:-fsanitize=address,undefined>
+            #$<$<CONFIG:Debug>:-fsanitize=address,undefined>
     )
-    add_link_options(
-            $<$<CONFIG:Debug>:-fsanitize=address,undefined>
-    )
+    #add_link_options(
+    #        $<$<CONFIG:Debug>:-fsanitize=address,undefined>
+    #)
 endif()
 
 # -----------------------------------------------------------------------------
