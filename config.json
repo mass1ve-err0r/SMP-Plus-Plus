@@ -44,7 +44,7 @@
         "keepalive_requests": 0,
         "pipelining_requests": 0,
 
-        "server_header_field": "smp++",
+        "server_header_field": "SMP++/1.0",
         "enable_server_header": true,
         "enable_date_header": true,
 
