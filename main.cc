@@ -4,9 +4,9 @@
 #include <drogon/drogon.h>
 #include "utils/environment.h"
 #include "db/migration_runner.h"
+#include "db/admin_bootstrap.h"
 
-int main()
-{
+int main() {
     // -------------------------------------------------------------------------
     // Step 1: Validate all environment variables.
     // Nothing else runs until this succeeds.
@@ -92,8 +92,19 @@ int main()
     // -------------------------------------------------------------------------
     SMPPlusPlus::MigrationRunner::run(SMPPlusPlus::Environment::dbUrl());
 
+    // -------------------------------------------------------------------------
+    // Step 7: Bootstrap core admin user if this is a first boot.
+    // Idempotent - skipped if admin already exists.
+    // -------------------------------------------------------------------------
+    SMPPlusPlus::AdminBootstrap::run(
+        SMPPlusPlus::Environment::dbUrl(),
+        "admin",
+        SMPPlusPlus::Environment::adminPassword()
+    );
+
     LOG_INFO << "smp++ starting on port " << SMPPlusPlus::Environment::port();
     app.run();
 
     return 0;
+
 }
