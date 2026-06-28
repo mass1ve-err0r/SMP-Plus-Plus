@@ -1,11 +1,99 @@
+//
+// Created by Saadat Baig on 28.06.26.
+//
 #include <drogon/drogon.h>
-int main() {
-    //Set HTTP listener address and port
-    drogon::app().addListener("0.0.0.0", 5555);
-    //Load config file
-    //drogon::app().loadConfigFile("../config.json");
-    //drogon::app().loadConfigFile("../config.yaml");
-    //Run HTTP framework,the method will block in the internal event loop
-    drogon::app().run();
+#include "utils/environment.h"
+#include "db/migration_runner.h"
+
+int main()
+{
+    // -------------------------------------------------------------------------
+    // Step 1: Validate all environment variables.
+    // Nothing else runs until this succeeds.
+    // -------------------------------------------------------------------------
+    SMPPlusPlus::Environment::validate();
+
+    auto& app = drogon::app();
+
+    // -------------------------------------------------------------------------
+    // Step 2: Load config.json for non-sensitive settings.
+    // DB and TLS come from Environment, not config.json.
+    // -------------------------------------------------------------------------
+    app.loadConfigFile("config.json");
+
+    // -------------------------------------------------------------------------
+    // Step 3: Override log level and thread count from Environment.
+    // These take precedence over config.json values.
+    // -------------------------------------------------------------------------
+    app.setLogLevel([] {
+        const auto& level = SMPPlusPlus::Environment::logLevel();
+        if (level == "TRACE") return trantor::Logger::kTrace;
+        if (level == "DEBUG") return trantor::Logger::kDebug;
+        if (level == "WARN")  return trantor::Logger::kWarn;
+        if (level == "ERROR") return trantor::Logger::kError;
+        return trantor::Logger::kInfo;
+    }());
+
+    app.setThreadNum(static_cast<size_t>(SMPPlusPlus::Environment::workerThreads()));
+
+    // -------------------------------------------------------------------------
+    // Step 4: Register the runtime DB client (is_fast=true).
+    // One connection per IO thread, no locking on the query path.
+    // Not usable until app.run() starts the event loop.
+    // -------------------------------------------------------------------------
+    const auto& db = SMPPlusPlus::Environment::dbConfig();
+    app.createDbClient(
+        "postgresql",                            // dbType
+        db.host,                                 // host
+        db.port,                                 // port
+        db.dbname,                               // databaseName
+        db.user,                                 // userName
+        db.password,                             // password
+        static_cast<size_t>(db.connections),     // connectionNum (per IO thread)
+        "",                                      // filename (sqlite3 only)
+        "default",                               // name
+        true,                                    // isFast
+        "utf8",                                  // characterSet
+        db.timeout                               // timeout
+    );
+
+    // -------------------------------------------------------------------------
+    // Step 5: Listener.
+    //
+    // SMP_DEV_MODE=true  → plain HTTP, no TLS required (dev only).
+    // SMP_DEV_MODE=false → HTTPS required. Missing TLS config = hard failure.
+    // -------------------------------------------------------------------------
+    if (SMPPlusPlus::Environment::devMode()) {
+        LOG_WARN << "[smp++] DEV MODE: running plain HTTP on port "
+                 << SMPPlusPlus::Environment::port()
+                 << " - DO NOT use in production";
+        app.addListener("0.0.0.0", SMPPlusPlus::Environment::port(), false);
+    } else if (SMPPlusPlus::Environment::tlsEnabled()) {
+        app.addListener(
+            "0.0.0.0",
+            SMPPlusPlus::Environment::port(),
+            true,
+            SMPPlusPlus::Environment::tlsCertPath(),
+            SMPPlusPlus::Environment::tlsKeyPath()
+        );
+    } else {
+        throw std::runtime_error(
+            "[smp++] TLS not configured and SMP_DEV_MODE is not set. "
+            "Set SMP_TLS_CERT_PATH + SMP_TLS_KEY_PATH for production, "
+            "or set SMP_DEV_MODE=true for local development."
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 6: Run DB migrations via direct libpq before accepting traffic.
+    //
+    // Drogon's DB client is not available until app().run() starts the event
+    // loop. We bypass it entirely and use libpq directly for migrations.
+    // -------------------------------------------------------------------------
+    SMPPlusPlus::MigrationRunner::run(SMPPlusPlus::Environment::dbUrl());
+
+    LOG_INFO << "smp++ starting on port " << SMPPlusPlus::Environment::port();
+    app.run();
+
     return 0;
 }
