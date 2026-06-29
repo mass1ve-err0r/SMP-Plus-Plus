@@ -5,6 +5,7 @@
 
 #include "migrations/migration_001.h"
 #include "migrations/migration_002.h"
+#include "migrations/migration_003.h"
 
 #include <libpq-fe.h>
 #include <iostream>
@@ -21,6 +22,7 @@ namespace SMPPlusPlus
         static const std::vector<Migration> all = {
             { "001", Migrations::migration_001_sql },
             { "002", Migrations::migration_002_sql },
+            { "003", Migrations::migration_003_sql },
         };
         return all;
     }
