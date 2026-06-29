@@ -5,8 +5,11 @@
 #include "utils/environment.h"
 #include "db/migration_runner.h"
 #include "db/admin_bootstrap.h"
+#include "db/signing_key_cache.h"
 
-int main() {
+
+int main()
+{
     // -------------------------------------------------------------------------
     // Step 1: Validate all environment variables.
     // Nothing else runs until this succeeds.
@@ -100,6 +103,15 @@ int main() {
         SMPPlusPlus::Environment::dbUrl(),
         "admin",
         SMPPlusPlus::Environment::adminPassword()
+    );
+
+    // -------------------------------------------------------------------------
+    // Step 8: Eagerly load the active SMP signing key into cache.
+    // If no active cert exists, the SMP protocol endpoints will return 503
+    // until a cert is uploaded and activated via the management API.
+    // -------------------------------------------------------------------------
+    SMPPlusPlus::SigningKeyCache::instance().loadFromDb(
+        SMPPlusPlus::Environment::dbUrl()
     );
 
     LOG_INFO << "smp++ starting on port " << SMPPlusPlus::Environment::port();

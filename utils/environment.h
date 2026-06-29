@@ -70,6 +70,11 @@ namespace SMPPlusPlus
         /// Number of IO threads. Default: hardware_concurrency()
         static uint32_t workerThreads();
 
+        /// Public base URL of this SMP instance.
+        /// Used to construct ServiceMetadataReference hrefs in ServiceGroup responses.
+        /// Example: SMP_PUBLIC_URL=https://my.smp.com
+        static const std::string& publicUrl();
+
         /// Dev mode: plain HTTP, no TLS required.
         /// Set SMP_DEV_MODE=true for local development only.
         /// Any value other than "true" (case-insensitive) is treated as false.
@@ -114,6 +119,7 @@ namespace SMPPlusPlus
             std::string tlsKeyPath;
             uint32_t    workerThreads = 0;
             bool        devMode       = true;
+            std::string publicUrl;
 
             // Parsed from dbUrl
             DbConfig    db;
@@ -124,6 +130,7 @@ namespace SMPPlusPlus
         static Cache& cache();
 
     private:
+
         static std::string requireVar(const char* name);
         static std::optional<std::string> optionalVar(const char* name);
         static std::string optionalVar(const char* name, std::string_view defaultValue);

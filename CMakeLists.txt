@@ -36,11 +36,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             $<$<CONFIG:Release>:-O3>
             $<$<CONFIG:Release>:-march=native>
             $<$<CONFIG:Debug>:-g3>
-            #$<$<CONFIG:Debug>:-fsanitize=address,undefined>
+            $<$<CONFIG:Debug>:-fsanitize=address,undefined>
     )
-    #add_link_options(
-    #        $<$<CONFIG:Debug>:-fsanitize=address,undefined>
-    #)
+    add_link_options(
+            $<$<CONFIG:Debug>:-fsanitize=address,undefined>
+    )
 endif()
 
 # -----------------------------------------------------------------------------
@@ -136,6 +136,7 @@ aux_source_directory(plugins     PLUGIN_SRC)
 aux_source_directory(models      MODEL_SRC)
 aux_source_directory(utils       UTILS_SRC)
 aux_source_directory(db          DB_SRC)
+aux_source_directory(xml         XML_SRC)
 
 # -----------------------------------------------------------------------------
 # Target
@@ -166,6 +167,7 @@ target_sources(${PROJECT_NAME} PRIVATE
         ${MODEL_SRC}
         ${UTILS_SRC}
         ${DB_SRC}
+        ${XML_SRC}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

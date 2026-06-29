@@ -178,7 +178,7 @@ namespace SMPPlusPlus
         c.db.connections = optionalVarU32("SMP_DB_CONNECTIONS", 1);
 
         // Optional vars
-        c.port          = optionalVarU16("SMP_PORT",       10420);
+        c.port          = optionalVarU16("SMP_PORT",       443);
         c.logLevel      = optionalVar("SMP_LOG_LEVEL",     "INFO");
         c.tlsCertPath   = optionalVar("SMP_TLS_CERT_PATH", "");
         c.tlsKeyPath    = optionalVar("SMP_TLS_KEY_PATH",  "");
@@ -191,6 +191,12 @@ namespace SMPPlusPlus
             std::transform(val.begin(), val.end(), val.begin(),
                 [](unsigned char ch){ return std::tolower(ch); });
             c.devMode = (val == "true");
+        }
+
+        c.publicUrl = optionalVar("SMP_PUBLIC_URL", "");
+        if (c.publicUrl.empty()) {
+            std::cerr << "[Env] WARNING: SMP_PUBLIC_URL not set. "
+                         "ServiceGroup hrefs will be incomplete.\n";
         }
 
         auto sessionSecretOpt = optionalVar("SMP_SESSION_SECRET");
@@ -228,6 +234,7 @@ namespace SMPPlusPlus
                   << "  DB conns/thread:     " << c.db.connections   << "\n"
                   << "  TLS enabled:         " << (c.tlsCertPath.empty() ? "no" : "yes") << "\n"
                   << "  SMP_DEV_MODE:        " << (c.devMode ? "YES (plain HTTP)" : "no") << "\n"
+                  << "  SMP_PUBLIC_URL:      " << (c.publicUrl.empty() ? "[not set]" : c.publicUrl) << "\n"
                   << "  SMP_MASTER_KEY:      [set, not logged]\n"
                   << "  SMP_ADMIN_PASSWORD:  [set, not logged]\n"
                   << "  DB password:         [set, not logged]\n";
@@ -269,6 +276,9 @@ namespace SMPPlusPlus
     }
     uint32_t Environment::workerThreads() {
         const auto& c = cache(); assertValidated(c); return c.workerThreads;
+    }
+    const std::string& Environment::publicUrl() {
+        const auto& c = cache(); assertValidated(c); return c.publicUrl;
     }
     bool Environment::devMode() {
         const auto& c = cache(); assertValidated(c); return c.devMode;
