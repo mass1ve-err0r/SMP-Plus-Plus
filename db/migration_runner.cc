@@ -4,6 +4,7 @@
 #include "migration_runner.h"
 
 #include "migrations/migration_001.h"
+#include "migrations/migration_002.h"
 
 #include <libpq-fe.h>
 #include <iostream>
@@ -19,7 +20,7 @@ namespace SMPPlusPlus
     const std::vector<MigrationRunner::Migration>& MigrationRunner::migrations() {
         static const std::vector<Migration> all = {
             { "001", Migrations::migration_001_sql },
-            // { "002", Migrations::migration_002_sql },
+            { "002", Migrations::migration_002_sql },
         };
         return all;
     }
