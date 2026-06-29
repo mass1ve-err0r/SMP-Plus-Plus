@@ -1,0 +1,449 @@
+//
+// Created by Saadat Baig on 29.06.26.
+//
+#include "participant_repository.h"
+
+
+namespace SMPPlusPlus
+{
+    namespace {
+
+        Participant rowToParticipant(const drogon::orm::Row& row) {
+            Participant p;
+            p.id                = row["id"].as<std::string>();
+            p.tenantId          = row["tenant_id"].as<std::string>();
+            p.identifierScheme  = row["identifier_scheme"].as<std::string>();
+            p.identifierValue   = row["identifier_value"].as<std::string>();
+            p.createdAt         = row["created_at"].as<std::string>();
+            if (!row["created_by"].isNull())
+                p.createdBy = row["created_by"].as<std::string>();
+            return p;
+        }
+
+        Endpoint rowToEndpoint(const drogon::orm::Row& row) {
+            Endpoint e;
+            e.id                      = row["id"].as<std::string>();
+            e.processId               = row["process_id"].as<std::string>();
+            e.transportProfile        = row["transport_profile"].as<std::string>();
+            e.endpointUrl             = row["endpoint_url"].as<std::string>();
+            e.apCertificatePem        = row["ap_certificate_pem"].as<std::string>();
+            e.requireBls              = row["require_bls"].as<bool>();
+            e.createdAt               = row["created_at"].as<std::string>();
+            if (!row["service_activation_date"].isNull())
+                e.serviceActivationDate = row["service_activation_date"].as<std::string>();
+            if (!row["service_expiration_date"].isNull())
+                e.serviceExpirationDate = row["service_expiration_date"].as<std::string>();
+            if (!row["technical_contact_url"].isNull())
+                e.technicalContactUrl = row["technical_contact_url"].as<std::string>();
+            if (!row["technical_information_url"].isNull())
+                e.technicalInformationUrl = row["technical_information_url"].as<std::string>();
+            if (!row["service_description"].isNull())
+                e.serviceDescription = row["service_description"].as<std::string>();
+            return e;
+        }
+
+        Process rowToProcess(const drogon::orm::Row& row) {
+            Process p;
+            p.id                = row["id"].as<std::string>();
+            p.serviceMetadataId = row["service_metadata_id"].as<std::string>();
+            p.processScheme     = row["process_scheme"].as<std::string>();
+            p.processValue      = row["process_value"].as<std::string>();
+            p.createdAt         = row["created_at"].as<std::string>();
+            return p;
+        }
+
+        ServiceMetadata rowToServiceMetadata(const drogon::orm::Row& row) {
+            ServiceMetadata s;
+            s.id                 = row["id"].as<std::string>();
+            s.participantId      = row["participant_id"].as<std::string>();
+            s.documentTypeScheme = row["document_type_scheme"].as<std::string>();
+            s.documentTypeValue  = row["document_type_value"].as<std::string>();
+            s.createdAt          = row["created_at"].as<std::string>();
+            return s;
+        }
+
+    } // anonymous namespace
+
+    // =============================================================================
+    // Participants
+    // =============================================================================
+
+    drogon::Task<std::vector<Participant>> ParticipantRepository::findByTenantId(
+        const std::string& tenantId)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+        std::vector<Participant> results;
+
+        try {
+            auto rows = co_await db->execSqlCoro(
+                "SELECT id, tenant_id, identifier_scheme, identifier_value, "
+                "created_at, created_by FROM participants "
+                "WHERE tenant_id = $1 ORDER BY identifier_value ASC",
+                tenantId
+            );
+            for (const auto& row : rows)
+                results.push_back(rowToParticipant(row));
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] findByTenantId: " << e.base().what();
+        }
+        co_return results;
+    }
+
+    drogon::Task<std::optional<Participant>> ParticipantRepository::findById(
+        const std::string& id,
+        const std::string& tenantId)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto rows = co_await db->execSqlCoro(
+                "SELECT id, tenant_id, identifier_scheme, identifier_value, "
+                "created_at, created_by FROM participants "
+                "WHERE id = $1 AND tenant_id = $2 LIMIT 1",
+                id, tenantId
+            );
+            if (!rows.empty()) co_return rowToParticipant(rows[0]);
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] findById: " << e.base().what();
+        }
+        co_return std::nullopt;
+    }
+
+    drogon::Task<bool> ParticipantRepository::existsByIdentifier(
+        const std::string& tenantId,
+        const std::string& scheme,
+        const std::string& value)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto rows = co_await db->execSqlCoro(
+                "SELECT 1 FROM participants "
+                "WHERE tenant_id = $1 AND identifier_scheme = $2 "
+                "AND identifier_value = $3 LIMIT 1",
+                tenantId, scheme, value
+            );
+            co_return !rows.empty();
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] existsByIdentifier: " << e.base().what();
+            co_return false;
+        }
+    }
+
+    drogon::Task<std::string> ParticipantRepository::create(
+        const std::string& tenantId,
+        const std::string& scheme,
+        const std::string& value,
+        const std::string& createdByUserId)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto rows = co_await db->execSqlCoro(
+                "INSERT INTO participants "
+                "(tenant_id, identifier_scheme, identifier_value, created_by) "
+                "VALUES ($1, $2, $3, $4) RETURNING id",
+                tenantId, scheme, value, createdByUserId
+            );
+            if (!rows.empty()) co_return rows[0]["id"].as<std::string>();
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] create: " << e.base().what();
+            throw;
+        }
+        co_return std::string{};
+    }
+
+    drogon::Task<bool> ParticipantRepository::remove(
+        const std::string& id,
+        const std::string& tenantId)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto result = co_await db->execSqlCoro(
+                "DELETE FROM participants WHERE id = $1 AND tenant_id = $2",
+                id, tenantId
+            );
+            co_return result.affectedRows() > 0;
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] remove: " << e.base().what();
+            co_return false;
+        }
+    }
+
+    // =============================================================================
+    // ServiceMetadata
+    // =============================================================================
+
+    drogon::Task<std::vector<ServiceMetadata>> ParticipantRepository::findServicesByParticipantId(
+        const std::string& participantId,
+        const std::string& tenantId)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+        std::vector<ServiceMetadata> results;
+
+        try {
+            // Verify participant belongs to tenant first
+            auto check = co_await db->execSqlCoro(
+                "SELECT 1 FROM participants WHERE id = $1 AND tenant_id = $2 LIMIT 1",
+                participantId, tenantId
+            );
+            if (check.empty()) co_return results;
+
+            // Fetch service metadata
+            auto smRows = co_await db->execSqlCoro(
+                "SELECT id, participant_id, document_type_scheme, document_type_value, "
+                "created_at FROM service_metadata WHERE participant_id = $1 "
+                "ORDER BY document_type_value ASC",
+                participantId
+            );
+
+            for (const auto& smRow : smRows) {
+                ServiceMetadata sm = rowToServiceMetadata(smRow);
+
+                // Fetch processes for this service metadata
+                auto procRows = co_await db->execSqlCoro(
+                    "SELECT id, service_metadata_id, process_scheme, process_value, "
+                    "created_at FROM processes WHERE service_metadata_id = $1 "
+                    "ORDER BY process_value ASC",
+                    sm.id
+                );
+
+                for (const auto& procRow : procRows) {
+                    Process proc = rowToProcess(procRow);
+
+                    // Fetch endpoints for this process
+                    auto epRows = co_await db->execSqlCoro(
+                        "SELECT id, process_id, transport_profile, endpoint_url, "
+                        "ap_certificate_pem, require_bls, service_activation_date, "
+                        "service_expiration_date, technical_contact_url, "
+                        "technical_information_url, service_description, created_at "
+                        "FROM endpoints WHERE process_id = $1",
+                        proc.id
+                    );
+
+                    for (const auto& epRow : epRows)
+                        proc.endpoints.push_back(rowToEndpoint(epRow));
+
+                    sm.processes.push_back(std::move(proc));
+                }
+
+                results.push_back(std::move(sm));
+            }
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] findServicesByParticipantId: "
+                      << e.base().what();
+        }
+        co_return results;
+    }
+
+    drogon::Task<std::optional<ServiceMetadata>> ParticipantRepository::findServiceById(
+        const std::string& serviceId,
+        const std::string& participantId)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto rows = co_await db->execSqlCoro(
+                "SELECT id, participant_id, document_type_scheme, document_type_value, "
+                "created_at FROM service_metadata "
+                "WHERE id = $1 AND participant_id = $2 LIMIT 1",
+                serviceId, participantId
+            );
+            if (rows.empty()) co_return std::nullopt;
+
+            ServiceMetadata sm = rowToServiceMetadata(rows[0]);
+
+            auto procRows = co_await db->execSqlCoro(
+                "SELECT id, service_metadata_id, process_scheme, process_value, "
+                "created_at FROM processes WHERE service_metadata_id = $1",
+                sm.id
+            );
+
+            for (const auto& procRow : procRows) {
+                Process proc = rowToProcess(procRow);
+
+                auto epRows = co_await db->execSqlCoro(
+                    "SELECT id, process_id, transport_profile, endpoint_url, "
+                    "ap_certificate_pem, require_bls, service_activation_date, "
+                    "service_expiration_date, technical_contact_url, "
+                    "technical_information_url, service_description, created_at "
+                    "FROM endpoints WHERE process_id = $1",
+                    proc.id
+                );
+                for (const auto& epRow : epRows)
+                    proc.endpoints.push_back(rowToEndpoint(epRow));
+
+                sm.processes.push_back(std::move(proc));
+            }
+
+            co_return sm;
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] findServiceById: " << e.base().what();
+            co_return std::nullopt;
+        }
+    }
+
+    drogon::Task<bool> ParticipantRepository::serviceExistsByDocType(
+        const std::string& participantId,
+        const std::string& docTypeScheme,
+        const std::string& docTypeValue)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto rows = co_await db->execSqlCoro(
+                "SELECT 1 FROM service_metadata "
+                "WHERE participant_id = $1 AND document_type_scheme = $2 "
+                "AND document_type_value = $3 LIMIT 1",
+                participantId, docTypeScheme, docTypeValue
+            );
+            co_return !rows.empty();
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] serviceExistsByDocType: " << e.base().what();
+            co_return false;
+        }
+    }
+
+    drogon::Task<std::string> ParticipantRepository::createService(
+        const std::string& participantId,
+        const std::string& docTypeScheme,
+        const std::string& docTypeValue)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto rows = co_await db->execSqlCoro(
+                "INSERT INTO service_metadata "
+                "(participant_id, document_type_scheme, document_type_value) "
+                "VALUES ($1, $2, $3) RETURNING id",
+                participantId, docTypeScheme, docTypeValue
+            );
+            if (!rows.empty()) co_return rows[0]["id"].as<std::string>();
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] createService: " << e.base().what();
+            throw;
+        }
+        co_return std::string{};
+    }
+
+    drogon::Task<bool> ParticipantRepository::removeService(
+        const std::string& serviceId,
+        const std::string& participantId)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto result = co_await db->execSqlCoro(
+                "DELETE FROM service_metadata WHERE id = $1 AND participant_id = $2",
+                serviceId, participantId
+            );
+            co_return result.affectedRows() > 0;
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] removeService: " << e.base().what();
+            co_return false;
+        }
+    }
+
+    // =============================================================================
+    // Processes
+    // =============================================================================
+
+    drogon::Task<std::string> ParticipantRepository::createProcess(
+        const std::string& serviceMetadataId,
+        const std::string& processScheme,
+        const std::string& processValue)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto rows = co_await db->execSqlCoro(
+                "INSERT INTO processes (service_metadata_id, process_scheme, process_value) "
+                "VALUES ($1, $2, $3) RETURNING id",
+                serviceMetadataId, processScheme, processValue
+            );
+            if (!rows.empty()) co_return rows[0]["id"].as<std::string>();
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] createProcess: " << e.base().what();
+            throw;
+        }
+        co_return std::string{};
+    }
+
+    drogon::Task<bool> ParticipantRepository::removeProcess(
+        const std::string& processId,
+        const std::string& serviceMetadataId)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto result = co_await db->execSqlCoro(
+                "DELETE FROM processes WHERE id = $1 AND service_metadata_id = $2",
+                processId, serviceMetadataId
+            );
+            co_return result.affectedRows() > 0;
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] removeProcess: " << e.base().what();
+            co_return false;
+        }
+    }
+
+    // =============================================================================
+    // Endpoints
+    // =============================================================================
+
+    drogon::Task<std::string> ParticipantRepository::createEndpoint(
+        const std::string& processId,
+        const std::string& transportProfile,
+        const std::string& endpointUrl,
+        const std::string& apCertificatePem,
+        bool               requireBls,
+        const std::string& serviceActivationDate,
+        const std::string& serviceExpirationDate,
+        const std::string& technicalContactUrl,
+        const std::string& technicalInformationUrl,
+        const std::string& serviceDescription)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto rows = co_await db->execSqlCoro(
+                "INSERT INTO endpoints (process_id, transport_profile, endpoint_url, "
+                "ap_certificate_pem, require_bls, service_activation_date, "
+                "service_expiration_date, technical_contact_url, "
+                "technical_information_url, service_description) "
+                "VALUES ($1, $2, $3, $4, $5, "
+                "NULLIF($6, '')::TIMESTAMPTZ, NULLIF($7, '')::TIMESTAMPTZ, "
+                "NULLIF($8, ''), NULLIF($9, ''), NULLIF($10, '')) "
+                "RETURNING id",
+                processId, transportProfile, endpointUrl, apCertificatePem,
+                requireBls, serviceActivationDate, serviceExpirationDate,
+                technicalContactUrl, technicalInformationUrl, serviceDescription
+            );
+            if (!rows.empty()) co_return rows[0]["id"].as<std::string>();
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] createEndpoint: " << e.base().what();
+            throw;
+        }
+        co_return std::string{};
+    }
+
+    drogon::Task<bool> ParticipantRepository::removeEndpoint(
+        const std::string& endpointId,
+        const std::string& processId)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto result = co_await db->execSqlCoro(
+                "DELETE FROM endpoints WHERE id = $1 AND process_id = $2",
+                endpointId, processId
+            );
+            co_return result.affectedRows() > 0;
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] removeEndpoint: " << e.base().what();
+            co_return false;
+        }
+    }
+
+} // namespace SMPPlusPlus
