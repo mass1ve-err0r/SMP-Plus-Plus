@@ -7,6 +7,7 @@
 #include <vector>
 #include <pugixml.hpp>
 #include "db/participant_repository.h"
+#include "xml/pugi_utilities.h"
 
 
 namespace SMPPlusPlus
@@ -43,8 +44,11 @@ namespace SMPPlusPlus
             const std::vector<ServiceMetadata>& services
         ) const;
 
+        void addExtensionNode(pugi::xml_node& node, size_t serviceCount) const;
+
     private:
         std::string smpBaseUrl_;
+
     };
 
 } // namespace SMPPlusPlus

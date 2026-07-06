@@ -102,6 +102,11 @@ FetchContent_MakeAvailable(drogon)
 find_package(OpenSSL REQUIRED)
 
 # -----------------------------------------------------------------------------
+# libcurl - for SML SOAP calls with mutual TLS
+# -----------------------------------------------------------------------------
+find_package(CURL REQUIRED)
+
+# -----------------------------------------------------------------------------
 # pugixml
 # -----------------------------------------------------------------------------
 find_package(pugixml QUIET)
@@ -178,6 +183,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         tl::expected
         bcrypt
         ${PostgreSQL_LIBRARIES}
+        CURL::libcurl
 )
 
 # -----------------------------------------------------------------------------

@@ -17,5 +17,7 @@ namespace SMPPlusPlus::XmlNs
     constexpr const char* W3C_RSA_SHA256 = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
     constexpr const char* W3C_SHA256 = "http://www.w3.org/2001/04/xmlenc#sha256";
 
+    constexpr const char* SMP_PLUS_PLUS = "https://github.com/mass1ve-err0r/smp-plus-plus";
+
 
 } // namespace SMPPlusPlus::XmlNs

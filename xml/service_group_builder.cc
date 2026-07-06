@@ -14,9 +14,7 @@ namespace SMPPlusPlus
         : smpBaseUrl_(std::move(smpBaseUrl))
     {}
 
-    std::string ServiceGroupBuilder::build(
-        const Participant& participant,
-        const std::vector<ServiceMetadata>& services) const
+    std::string ServiceGroupBuilder::build(const Participant& participant, const std::vector<ServiceMetadata>& services) const
     {
         pugi::xml_document doc;
 
@@ -60,10 +58,23 @@ namespace SMPPlusPlus
             ref.append_attribute("href") = href.c_str();
         }
 
+        // <Extension>
+        addExtensionNode(sg, services.capacity());
+
         // Serialize
         std::ostringstream oss;
         doc.save(oss, "  ", pugi::format_default, pugi::encoding_utf8);
         return oss.str();
+    }
+
+    void ServiceGroupBuilder::addExtensionNode(pugi::xml_node& node, size_t serviceCount) const
+    {
+        auto ex = node.append_child("smp:Extension");
+        ex.append_attribute("xmlns:smppp") = XmlNs::SMP_PLUS_PLUS;
+
+        auto exSummary = SMPPlusPlus::Pugi::appendNamespacedChildFast(ex, "Summary", false);
+        auto summaryTotal = SMPPlusPlus::Pugi::appendNamespacedChildFast(exSummary, "Entries", false);
+        summaryTotal.text().set(serviceCount);
     }
 
 } // namespace SMPPlusPlus
