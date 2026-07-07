@@ -63,13 +63,22 @@ int main()
     // -------------------------------------------------------------------------
     // Step 5: Listener.
     //
-    // SMP_DEV_MODE=true  → plain HTTP, no TLS required (dev only).
-    // SMP_DEV_MODE=false → HTTPS required. Missing TLS config = hard failure.
+    // Three deployment scenarios:
+    //   1. SMP_DEV_MODE=true       → plain HTTP, no TLS (local dev only).
+    //   2. SMP_BEHIND_PROXY=true   → plain HTTP internally, nginx/Cloudflare
+    //                                terminates TLS upstream (typical production).
+    //   3. otherwise               → TLS handled directly by smp++,
+    //                                SMP_TLS_CERT_PATH + SMP_TLS_KEY_PATH required.
     // -------------------------------------------------------------------------
     if (SMPPlusPlus::Environment::devMode()) {
         LOG_WARN << "[smp++] DEV MODE: running plain HTTP on port "
                  << SMPPlusPlus::Environment::port()
                  << " - DO NOT use in production";
+        app.addListener("0.0.0.0", SMPPlusPlus::Environment::port(), false);
+    } else if (SMPPlusPlus::Environment::behindProxy()) {
+        LOG_INFO << "[smp++] BEHIND PROXY: running plain HTTP on port "
+                 << SMPPlusPlus::Environment::port()
+                 << " - TLS is expected to be terminated by nginx/Cloudflare upstream";
         app.addListener("0.0.0.0", SMPPlusPlus::Environment::port(), false);
     } else if (SMPPlusPlus::Environment::tlsEnabled()) {
         app.addListener(
@@ -81,9 +90,10 @@ int main()
         );
     } else {
         throw std::runtime_error(
-            "[smp++] TLS not configured and SMP_DEV_MODE is not set. "
-            "Set SMP_TLS_CERT_PATH + SMP_TLS_KEY_PATH for production, "
-            "or set SMP_DEV_MODE=true for local development."
+            "[smp++] No valid listener configuration. Choose one:\n"
+            "  - SMP_DEV_MODE=true                          (local dev)\n"
+            "  - SMP_BEHIND_PROXY=true                      (behind nginx/Cloudflare)\n"
+            "  - SMP_TLS_CERT_PATH=... SMP_TLS_KEY_PATH=... (standalone TLS)"
         );
     }
 

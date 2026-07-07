@@ -28,11 +28,11 @@ namespace SMPPlusPlus
         METHOD_LIST_BEGIN
             ADD_METHOD_TO(SmlRegistrationController::registerSmp,
                 "/api/management/sml/{id}/register",
-                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(SmlRegistrationController::deregisterSmp,
                 "/api/management/sml/{id}/deregister",
-                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
         METHOD_LIST_END
 
         drogon::Task<> registerSmp(drogon::HttpRequestPtr req,

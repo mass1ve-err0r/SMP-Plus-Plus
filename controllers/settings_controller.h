@@ -27,15 +27,15 @@ namespace SMPPlusPlus
         METHOD_LIST_BEGIN
             ADD_METHOD_TO(SettingsController::getAll,
                 "/api/management/settings",
-                drogon::Get, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(SettingsController::getOne,
                 "/api/management/settings/{key}",
-                drogon::Get, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(SettingsController::upsert,
                 "/api/management/settings/{key}",
-                drogon::Put, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Put, "SMPPlusPlus::SessionOrBasicAuthFilter");
         METHOD_LIST_END
 
         drogon::Task<> getAll(drogon::HttpRequestPtr req,

@@ -32,43 +32,43 @@ namespace SMPPlusPlus
         METHOD_LIST_BEGIN
             ADD_METHOD_TO(UserController::getAll,
                 "/api/management/users",
-                drogon::Get, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(UserController::getOne,
                 "/api/management/users/{id}",
-                drogon::Get, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(UserController::create,
                 "/api/management/users",
-                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(UserController::deactivate,
                 "/api/management/users/{id}/deactivate",
-                drogon::Patch, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Patch, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(UserController::reactivate,
                 "/api/management/users/{id}/reactivate",
-                drogon::Patch, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Patch, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(UserController::hardDelete,
                 "/api/management/users/{id}",
-                drogon::Delete, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Delete, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(UserController::changePassword,
                 "/api/management/users/{id}/password",
-                drogon::Patch, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Patch, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(UserController::getGrants,
                 "/api/management/users/{id}/grants",
-                drogon::Get, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(UserController::addGrant,
                 "/api/management/users/{id}/grants",
-                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(UserController::removeGrant,
                 "/api/management/users/{id}/grants/{tenantId}",
-                drogon::Delete, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Delete, "SMPPlusPlus::SessionOrBasicAuthFilter");
         METHOD_LIST_END
 
         drogon::Task<> getAll(drogon::HttpRequestPtr req,

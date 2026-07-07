@@ -31,47 +31,47 @@ namespace SMPPlusPlus
             // Service Metadata
             ADD_METHOD_TO(ServiceMetadataController::getServices,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services",
-                drogon::Get, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(ServiceMetadataController::getService,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/{serviceId}",
-                drogon::Get, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(ServiceMetadataController::createService,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services",
-                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(ServiceMetadataController::removeService,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/{serviceId}",
-                drogon::Delete, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Delete, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             // Processes
             ADD_METHOD_TO(ServiceMetadataController::createProcess,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/{serviceId}/processes",
-                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(ServiceMetadataController::removeProcess,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/{serviceId}/processes/{processId}",
-                drogon::Delete, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Delete, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             // One-shot complete service creation (inline)
             ADD_METHOD_TO(ServiceMetadataController::createCompleteInline,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/completeInline",
-                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             // One-shot complete service creation
             ADD_METHOD_TO(ServiceMetadataController::createComplete,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/complete",
-                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             // Endpoints
             ADD_METHOD_TO(ServiceMetadataController::createEndpoint,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/{serviceId}/processes/{processId}/endpoints",
-                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(ServiceMetadataController::removeEndpoint,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/{serviceId}/processes/{processId}/endpoints/{endpointId}",
-                drogon::Delete, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Delete, "SMPPlusPlus::SessionOrBasicAuthFilter");
         METHOD_LIST_END
 
         // Service Metadata

@@ -58,6 +58,7 @@ namespace SMPPlusPlus
         drogon::FilterCallback&&      fcb,
         drogon::FilterChainCallback&& fccb)
     {
+        LOG_INFO << "[SessionOrBasicAuthFilter] doFilter, devMode=" << Environment::devMode();
         // -------------------------------------------------------------------------
         // Path 1: Session cookie (always accepted)
         // -------------------------------------------------------------------------
@@ -100,6 +101,8 @@ namespace SMPPlusPlus
             fcb(unauthorizedResponse());
             return;
         }
+
+        LOG_WARN << "Entered BasicAuth Path";
 
         const std::string authHeader = req->getHeader("Authorization");
         if (authHeader.empty()) {

@@ -80,6 +80,15 @@ namespace SMPPlusPlus
         /// Any value other than "true" (case-insensitive) is treated as false.
         static bool devMode();
 
+        /// Behind reverse proxy: smp++ runs plain HTTP internally, nginx/Cloudflare
+        /// handles TLS termination upstream. When true:
+        ///   - TLS on the smp++ listener is not required
+        ///   - Client IP is read from X-Forwarded-For / X-Real-IP headers
+        ///   - Cookie Secure flag remains set (client-facing hop is HTTPS)
+        /// Set SMP_BEHIND_PROXY=true for production deployments behind nginx.
+        /// Any value other than "true" (case-insensitive) is treated as false.
+        static bool behindProxy();
+
         // -------------------------------------------------------------------------
         // Derived
         // -------------------------------------------------------------------------
@@ -119,6 +128,7 @@ namespace SMPPlusPlus
             std::string tlsKeyPath;
             uint32_t    workerThreads = 0;
             bool        devMode       = true;
+            bool        behindProxy   = false;
             std::string publicUrl;
 
             // Parsed from dbUrl

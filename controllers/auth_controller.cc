@@ -60,8 +60,36 @@ namespace SMPPlusPlus
             return v;
         }
 
+        // Resolve the real client IP.
+        // When behind a reverse proxy, X-Forwarded-For / X-Real-IP contain the
+        // real client IP; getPeerAddr() returns the proxy's internal IP.
+        // Otherwise, use getPeerAddr() directly.
+        std::string resolveClientIp(const drogon::HttpRequestPtr& req) {
+            if (Environment::behindProxy()) {
+                // X-Forwarded-For may contain a comma-separated chain -
+                // the first entry is the original client.
+                const std::string fwd = req->getHeader("X-Forwarded-For");
+                if (!fwd.empty()) {
+                    const auto comma = fwd.find(',');
+                    std::string ip = (comma == std::string::npos)
+                                         ? fwd : fwd.substr(0, comma);
+                    // Trim leading/trailing whitespace
+                    while (!ip.empty() && std::isspace(
+                        static_cast<unsigned char>(ip.front()))) ip.erase(0, 1);
+                    while (!ip.empty() && std::isspace(
+                        static_cast<unsigned char>(ip.back()))) ip.pop_back();
+                    if (!ip.empty()) return ip;
+                }
+                const std::string realIp = req->getHeader("X-Real-IP");
+                if (!realIp.empty()) return realIp;
+            }
+            return req->getPeerAddr().toIp();
+        }
+
         // Build the Set-Cookie header value.
         // HttpOnly + SameSite=Strict + Path=/, Secure unless in dev mode.
+        // Note: Secure flag is set based on !devMode, NOT on behindProxy.
+        // Behind a proxy the client-to-edge hop is still HTTPS, so Secure must stay.
         std::string buildSessionCookie(
             const std::string& token,
             int                maxAgeSeconds)
@@ -135,7 +163,7 @@ namespace SMPPlusPlus
         }
 
         const std::string userAgent = req->getHeader("User-Agent");
-        const std::string ipAddress = req->getPeerAddr().toIp();
+        const std::string ipAddress = resolveClientIp(req);
 
         const std::string token = co_await SessionRepository::create(
             user->id, userAgent, ipAddress, SLIDING_WINDOW_HOURS

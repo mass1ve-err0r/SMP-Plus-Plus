@@ -27,27 +27,27 @@ namespace SMPPlusPlus
             ADD_METHOD_TO(TenantController::getAll,
                 "/api/management/tenants",
                 drogon::Get,
-                "SMPPlusPlus::BasicAuthFilter");
+                "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(TenantController::getOne,
                 "/api/management/tenants/{id}",
                 drogon::Get,
-                "SMPPlusPlus::BasicAuthFilter");
+                "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(TenantController::create,
                 "/api/management/tenants",
                 drogon::Post,
-                "SMPPlusPlus::BasicAuthFilter");
+                "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(TenantController::update,
                 "/api/management/tenants/{id}",
                 drogon::Put,
-                "SMPPlusPlus::BasicAuthFilter");
+                "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(TenantController::remove,
                 "/api/management/tenants/{id}",
                 drogon::Delete,
-                "SMPPlusPlus::BasicAuthFilter");
+                "SMPPlusPlus::SessionOrBasicAuthFilter");
         METHOD_LIST_END
 
         drogon::Task<> getAll(

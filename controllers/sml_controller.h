@@ -28,35 +28,35 @@ namespace SMPPlusPlus
         METHOD_LIST_BEGIN
             ADD_METHOD_TO(SmlController::getAll,
                 "/api/management/sml",
-                drogon::Get, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(SmlController::getOne,
                 "/api/management/sml/{id}",
-                drogon::Get, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(SmlController::create,
                 "/api/management/sml",
-                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(SmlController::update,
                 "/api/management/sml/{id}",
-                drogon::Put, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Put, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(SmlController::remove,
                 "/api/management/sml/{id}",
-                drogon::Delete, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Delete, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(SmlController::enable,
                 "/api/management/sml/{id}/enable",
-                drogon::Patch, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Patch, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(SmlController::disable,
                 "/api/management/sml/{id}/disable",
-                drogon::Patch, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Patch, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(SmlController::setPrimary,
                 "/api/management/sml/{id}/primary",
-                drogon::Patch, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Patch, "SMPPlusPlus::SessionOrBasicAuthFilter");
         METHOD_LIST_END
 
         drogon::Task<> getAll(drogon::HttpRequestPtr req,

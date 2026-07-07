@@ -24,19 +24,19 @@ namespace SMPPlusPlus
         METHOD_LIST_BEGIN
             ADD_METHOD_TO(CertificateController::getAll,
                 "/api/management/certificates",
-                drogon::Get, "SMPPlusPlus::BasicAuthFilter");
+                drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
         ADD_METHOD_TO(CertificateController::upload,
             "/api/management/certificates",
-            drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+            drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
         ADD_METHOD_TO(CertificateController::activate,
             "/api/management/certificates/{id}/activate",
-            drogon::Patch, "SMPPlusPlus::BasicAuthFilter");
+            drogon::Patch, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
         ADD_METHOD_TO(CertificateController::remove,
             "/api/management/certificates/{id}",
-            drogon::Delete, "SMPPlusPlus::BasicAuthFilter");
+            drogon::Delete, "SMPPlusPlus::SessionOrBasicAuthFilter");
         METHOD_LIST_END
 
         drogon::Task<> getAll(drogon::HttpRequestPtr req,

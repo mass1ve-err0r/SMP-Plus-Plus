@@ -25,22 +25,22 @@ namespace SMPPlusPlus
             ADD_METHOD_TO(ParticipantController::getAll,
                 "/api/management/tenants/{tenantId}/participants",
                 drogon::Get,
-                "SMPPlusPlus::BasicAuthFilter");
+                "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(ParticipantController::getOne,
                 "/api/management/tenants/{tenantId}/participants/{id}",
                 drogon::Get,
-                "SMPPlusPlus::BasicAuthFilter");
+                "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(ParticipantController::create,
                 "/api/management/tenants/{tenantId}/participants",
                 drogon::Post,
-                "SMPPlusPlus::BasicAuthFilter");
+                "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(ParticipantController::remove,
                 "/api/management/tenants/{tenantId}/participants/{id}",
                 drogon::Delete,
-                "SMPPlusPlus::BasicAuthFilter");
+                "SMPPlusPlus::SessionOrBasicAuthFilter");
         METHOD_LIST_END
 
         drogon::Task<> getAll(

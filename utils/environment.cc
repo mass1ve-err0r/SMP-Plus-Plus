@@ -193,6 +193,14 @@ namespace SMPPlusPlus
             c.devMode = (val == "true");
         }
 
+        // Behind reverse proxy (nginx / Cloudflare terminates TLS upstream)
+        {
+            std::string val = optionalVar("SMP_BEHIND_PROXY", "false");
+            std::transform(val.begin(), val.end(), val.begin(),
+                [](unsigned char ch){ return std::tolower(ch); });
+            c.behindProxy = (val == "true");
+        }
+
         c.publicUrl = optionalVar("SMP_PUBLIC_URL", "");
         if (c.publicUrl.empty()) {
             std::cerr << "[Env] WARNING: SMP_PUBLIC_URL not set. "
@@ -216,10 +224,13 @@ namespace SMPPlusPlus
             throw std::runtime_error(
                 "[Env] SMP_TLS_CERT_PATH and SMP_TLS_KEY_PATH must both be set or both be empty");
 
-        if (c.tlsCertPath.empty() && !c.devMode)
-            std::cerr << "[Env] WARNING: TLS not configured. "
-                         "SMP spec requires HTTPS on port 443. "
-                         "Only acceptable in development.\n";
+        // TLS is required unless dev mode OR behind a reverse proxy
+        if (c.tlsCertPath.empty() && !c.devMode && !c.behindProxy)
+            std::cerr << "[Env] WARNING: TLS not configured, and neither "
+                         "SMP_DEV_MODE nor SMP_BEHIND_PROXY is set. "
+                         "SMP spec requires HTTPS. "
+                         "Set SMP_BEHIND_PROXY=true if running behind nginx/Cloudflare, "
+                         "or SMP_DEV_MODE=true for local development.\n";
 
         c.validated = true;
 
@@ -234,6 +245,7 @@ namespace SMPPlusPlus
                   << "  DB conns/thread:     " << c.db.connections   << "\n"
                   << "  TLS enabled:         " << (c.tlsCertPath.empty() ? "no" : "yes") << "\n"
                   << "  SMP_DEV_MODE:        " << (c.devMode ? "YES (plain HTTP)" : "no") << "\n"
+                  << "  SMP_BEHIND_PROXY:    " << (c.behindProxy ? "YES (TLS terminated upstream)" : "no") << "\n"
                   << "  SMP_PUBLIC_URL:      " << (c.publicUrl.empty() ? "[not set]" : c.publicUrl) << "\n"
                   << "  SMP_MASTER_KEY:      [set, not logged]\n"
                   << "  SMP_ADMIN_PASSWORD:  [set, not logged]\n"
@@ -282,6 +294,9 @@ namespace SMPPlusPlus
     }
     bool Environment::devMode() {
         const auto& c = cache(); assertValidated(c); return c.devMode;
+    }
+    bool Environment::behindProxy() {
+        const auto& c = cache(); assertValidated(c); return c.behindProxy;
     }
     bool Environment::tlsEnabled() {
         return !tlsCertPath().empty();
