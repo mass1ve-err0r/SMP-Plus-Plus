@@ -4,6 +4,7 @@
 #include "participant_controller.h"
 #include "db/participant_repository.h"
 #include "db/tenant_repository.h"
+#include "utils/pagination.h"
 
 #include <drogon/drogon.h>
 
@@ -115,6 +116,58 @@ namespace SMPPlusPlus
         }
 
         callback(jsonOk(participantToJson(*participant)));
+    }
+
+    // -----------------------------------------------------------------------------
+    // GET /api/management/tenants/:tenantId/participants/paged
+    // Query params: ?limit&offset&orderBy&orderDirection&search
+    //
+    // Response envelope:
+    //   {
+    //     "items":  [ {...participant...}, ... ],
+    //     "total":  147,
+    //     "limit":  25,
+    //     "offset": 50
+    //   }
+    // -----------------------------------------------------------------------------
+    drogon::Task<> ParticipantController::getPaged(
+        drogon::HttpRequestPtr req,
+        std::function<void(const drogon::HttpResponsePtr&)> callback,
+        std::string tenantId)
+    {
+        if (!co_await hasAccessToTenant(req, tenantId)) {
+            callback(jsonError(drogon::k403Forbidden, "Access denied"));
+            co_return;
+        }
+
+        // Whitelisted sort columns for this endpoint.
+        // The whitelist is the SQL-safety guard for ORDER BY.
+        const auto p = Pagination::fromRequest(
+            req,
+            {"identifier_value", "identifier_scheme", "created_at"},
+            "identifier_value"
+        );
+
+        auto page = co_await ParticipantRepository::findPagedByTenantId(
+            tenantId,
+            p.limit,
+            p.offset,
+            p.orderBy,
+            p.orderDirection,
+            p.search
+        );
+
+        Json::Value items(Json::arrayValue);
+        for (const auto& part : page.items)
+            items.append(participantToJson(part));
+
+        Json::Value body;
+        body["items"]  = items;
+        body["total"]  = page.total;
+        body["limit"]  = p.limit;
+        body["offset"] = p.offset;
+
+        callback(jsonOk(body));
     }
 
     // -----------------------------------------------------------------------------

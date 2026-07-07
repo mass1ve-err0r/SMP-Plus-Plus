@@ -189,6 +189,84 @@ namespace SMPPlusPlus
     }
 
     // =============================================================================
+    // findPagedByTenantId
+    // =============================================================================
+    drogon::Task<ParticipantRepository::PagedParticipants> ParticipantRepository::findPagedByTenantId(
+        const std::string& tenantId,
+        int                limit,
+        int                offset,
+        const std::string& orderBy,
+        const std::string& orderDirection,
+        const std::string& search)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+        PagedParticipants result;
+
+        // orderBy and orderDirection are whitelisted upstream via
+        // Pagination::fromRequest. String-interpolating them here is safe
+        // BECAUSE of that whitelist - never do it with untrusted input.
+        const std::string safeOrderBy   = orderBy.empty()
+                                              ? "identifier_value"
+                                              : orderBy;
+        const std::string safeDirection = (orderDirection == "DESC")
+                                              ? "DESC"
+                                              : "ASC";
+
+        try {
+            // Count query - runs against the same filter set as the data query.
+            // Passing search as $2 means an empty string becomes "%%" which
+            // matches everything - PostgreSQL treats this correctly.
+            auto countRows = co_await db->execSqlCoro(
+                "SELECT COUNT(*) AS total FROM participants "
+                "WHERE tenant_id = $1 "
+                "AND ("
+                "  $2 = '' OR "
+                "  identifier_value  ILIKE '%' || $2 || '%' OR "
+                "  identifier_scheme ILIKE '%' || $2 || '%'"
+                ")",
+                tenantId, search
+            );
+            result.total = countRows[0]["total"].as<int>();
+
+            // Data query
+            const std::string dataSql =
+                "SELECT id, tenant_id, identifier_scheme, identifier_value, "
+                "created_at, created_by "
+                "FROM participants "
+                "WHERE tenant_id = $1 "
+                "AND ("
+                "  $2 = '' OR "
+                "  identifier_value  ILIKE '%' || $2 || '%' OR "
+                "  identifier_scheme ILIKE '%' || $2 || '%'"
+                ") "
+                "ORDER BY " + safeOrderBy + " " + safeDirection + ", id ASC "
+                "LIMIT $3 OFFSET $4";
+
+            auto rows = co_await db->execSqlCoro(
+                dataSql, tenantId, search, limit, offset
+            );
+
+            for (const auto& row : rows) {
+                Participant p;
+                p.id                = row["id"].as<std::string>();
+                p.tenantId          = row["tenant_id"].as<std::string>();
+                p.identifierScheme  = row["identifier_scheme"].as<std::string>();
+                p.identifierValue   = row["identifier_value"].as<std::string>();
+                p.createdAt         = row["created_at"].as<std::string>();
+                if (!row["created_by"].isNull())
+                    p.createdBy = row["created_by"].as<std::string>();
+                result.items.push_back(std::move(p));
+            }
+
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] findPagedByTenantId: "
+                      << e.base().what();
+        }
+
+        co_return result;
+    }
+
+    // =============================================================================
     // ServiceMetadata
     // =============================================================================
 

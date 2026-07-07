@@ -55,16 +55,12 @@ namespace SMPPlusPlus
 
     // Used by the one-shot complete service creation endpoint
     struct CompleteServiceRequest {
-
-        // Service metadata
         std::string documentTypeScheme = "busdox-docid-qns";
         std::string documentTypeValue;
 
-        // Process
         std::string processScheme = "cenbii-procid-ubl";
         std::string processValue;
 
-        // Endpoint
         std::string transportProfile  = "peppol-transport-as4-v2_0";
         std::string endpointUrl;
         std::string apCertificatePem;
@@ -108,6 +104,32 @@ namespace SMPPlusPlus
         static drogon::Task<bool> remove(
             const std::string& id,
             const std::string& tenantId
+        );
+
+        // -------------------------------------------------------------------------
+        // Participants - paginated variant (alongside findByTenantId)
+        // -------------------------------------------------------------------------
+        struct PagedParticipants {
+            std::vector<Participant> items;
+            int total = 0;
+        };
+
+        /**
+         * Paginated + searchable + sortable participant list scoped to a tenant.
+         *
+         * Search matches identifier_scheme or identifier_value case-insensitively.
+         * orderBy MUST be one of the whitelisted column names:
+         *   "identifier_value", "identifier_scheme", "created_at"
+         * orderDirection MUST be "ASC" or "DESC".
+         * These are validated at the controller level via Pagination::fromRequest.
+         */
+        static drogon::Task<PagedParticipants> findPagedByTenantId(
+            const std::string& tenantId,
+            int                limit,
+            int                offset,
+            const std::string& orderBy,
+            const std::string& orderDirection,
+            const std::string& search
         );
 
         // -------------------------------------------------------------------------
@@ -177,9 +199,6 @@ namespace SMPPlusPlus
 
         // -------------------------------------------------------------------------
         // One-shot complete service creation (atomic transaction)
-        // Creates service metadata + process + endpoint in a single DB transaction.
-        // Returns the created ServiceMetadata with full tree on success.
-        // Returns nullopt if any uniqueness constraint is violated.
         // -------------------------------------------------------------------------
         static drogon::Task<std::optional<ServiceMetadata>> createComplete(
             const std::string&          participantId,
