@@ -36,7 +36,7 @@ namespace SMPPlusPlus
     public:
         METHOD_LIST_BEGIN
             ADD_METHOD_TO(PublicParticipantController::listParticipants,
-                "/public/participants",
+                "/api/public",
                 drogon::Get);
         METHOD_LIST_END
 

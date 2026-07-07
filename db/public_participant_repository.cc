@@ -57,7 +57,7 @@ namespace SMPPlusPlus
                 "      identifier_scheme ILIKE '%' || $1 || '%' "
                 "ORDER BY " + safeOrderBy + " " + safeDirection +
                 ", " + secondarySort + " ASC "
-                "LIMIT $2 OFFSET $3";
+                "LIMIT $2::integer OFFSET $3::integer";
 
             auto rows = co_await db->execSqlCoro(
                 dataSql, search, limit, offset
