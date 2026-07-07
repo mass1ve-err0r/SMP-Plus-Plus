@@ -7,6 +7,7 @@
 #include "migrations/migration_002.h"
 #include "migrations/migration_003.h"
 #include "migrations/migration_004.h"
+#include "migrations/migration_005.h"
 
 #include <libpq-fe.h>
 #include <iostream>
@@ -25,6 +26,7 @@ namespace SMPPlusPlus
             { "002", Migrations::migration_002_sql },
             { "003", Migrations::migration_003_sql },
             { "004", Migrations::migration_004_sql },
+            { "005", Migrations::migration_005_sql },
         };
         return all;
     }
