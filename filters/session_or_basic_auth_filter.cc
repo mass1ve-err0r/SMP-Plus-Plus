@@ -5,6 +5,7 @@
 #include "db/session_repository.h"
 #include "db/user_repository.h"
 #include "utils/crypto_utils.h"
+#include "utils/environment.h"
 
 #include <drogon/drogon.h>
 
@@ -43,9 +44,12 @@ namespace SMPPlusPlus
     drogon::HttpResponsePtr SessionOrBasicAuthFilter::unauthorizedResponse() {
         auto resp = drogon::HttpResponse::newHttpResponse();
         resp->setStatusCode(drogon::k401Unauthorized);
-        resp->addHeader("WWW-Authenticate", "Basic realm=\"smp++\"");
+        // WWW-Authenticate: Basic only advertised in dev mode
+        if (Environment::devMode()) {
+            resp->addHeader("WWW-Authenticate", "Basic realm=\"smp++\"");
+        }
         resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
-        resp->setBody("{\"error\":\"Unauthorized\"}");
+        resp->setBody(R"({"error":"Unauthorized"})");
         return resp;
     }
 
@@ -55,12 +59,11 @@ namespace SMPPlusPlus
         drogon::FilterChainCallback&& fccb)
     {
         // -------------------------------------------------------------------------
-        // Path 1: Try session cookie first
+        // Path 1: Session cookie (always accepted)
         // -------------------------------------------------------------------------
         const std::string sessionToken = req->getCookie(COOKIE_NAME);
 
         if (!sessionToken.empty()) {
-            // Run as coroutine: look up session, extend, attach attributes
             drogon::async_run([req,
                                fcb  = std::move(fcb),
                                fccb = std::move(fccb),
@@ -68,9 +71,6 @@ namespace SMPPlusPlus
             {
                 auto session = co_await SessionRepository::findByToken(sessionToken);
                 if (!session) {
-                    // Cookie was set but session is invalid/expired — fall through
-                    // is not straightforward here; simplest to just return 401.
-                    // The frontend clears the cookie on 401.
                     fcb(unauthorizedResponse());
                     co_return;
                 }
@@ -81,7 +81,6 @@ namespace SMPPlusPlus
                     co_return;
                 }
 
-                // Extend session (sliding window)
                 co_await SessionRepository::extend(sessionToken);
 
                 req->getAttributes()->insert("auth_user_id",   user->id);
@@ -94,8 +93,14 @@ namespace SMPPlusPlus
         }
 
         // -------------------------------------------------------------------------
-        // Path 2: Fall back to HTTP Basic Auth
+        // Path 2: Basic Auth — DEV MODE ONLY
+        // In production, session cookie is the only accepted auth method.
         // -------------------------------------------------------------------------
+        if (!Environment::devMode()) {
+            fcb(unauthorizedResponse());
+            return;
+        }
+
         const std::string authHeader = req->getHeader("Authorization");
         if (authHeader.empty()) {
             fcb(unauthorizedResponse());
