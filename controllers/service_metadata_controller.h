@@ -54,6 +54,16 @@ namespace SMPPlusPlus
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/{serviceId}/processes/{processId}",
                 drogon::Delete, "SMPPlusPlus::BasicAuthFilter");
 
+            // One-shot complete service creation (inline)
+            ADD_METHOD_TO(ServiceMetadataController::createCompleteInline,
+                "/api/management/tenants/{tenantId}/participants/{participantId}/services/completeInline",
+                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+
+            // One-shot complete service creation
+            ADD_METHOD_TO(ServiceMetadataController::createComplete,
+                "/api/management/tenants/{tenantId}/participants/{participantId}/services/complete",
+                drogon::Post, "SMPPlusPlus::BasicAuthFilter");
+
             // Endpoints
             ADD_METHOD_TO(ServiceMetadataController::createEndpoint,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/{serviceId}/processes/{processId}/endpoints",
@@ -80,6 +90,14 @@ namespace SMPPlusPlus
         drogon::Task<> removeService(drogon::HttpRequestPtr req,
             std::function<void(const drogon::HttpResponsePtr&)> callback,
             std::string tenantId, std::string participantId, std::string serviceId);
+
+        drogon::Task<> createCompleteInline(drogon::HttpRequestPtr req,
+            std::function<void(const drogon::HttpResponsePtr&)> callback,
+            std::string tenantId, std::string participantId);
+
+        drogon::Task<> createComplete(drogon::HttpRequestPtr req,
+            std::function<void(const drogon::HttpResponsePtr&)> callback,
+            std::string tenantId, std::string participantId);
 
         // Processes
         drogon::Task<> createProcess(drogon::HttpRequestPtr req,

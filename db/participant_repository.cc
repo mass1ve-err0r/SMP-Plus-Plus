@@ -16,7 +16,10 @@ namespace SMPPlusPlus
             p.identifierValue   = row["identifier_value"].as<std::string>();
             p.createdAt         = row["created_at"].as<std::string>();
             if (!row["created_by"].isNull())
+            {
                 p.createdBy = row["created_by"].as<std::string>();
+            }
+
             return p;
         }
 
@@ -30,15 +33,26 @@ namespace SMPPlusPlus
             e.requireBls              = row["require_bls"].as<bool>();
             e.createdAt               = row["created_at"].as<std::string>();
             if (!row["service_activation_date"].isNull())
+            {
                 e.serviceActivationDate = row["service_activation_date"].as<std::string>();
+            }
             if (!row["service_expiration_date"].isNull())
+            {
                 e.serviceExpirationDate = row["service_expiration_date"].as<std::string>();
+            }
             if (!row["technical_contact_url"].isNull())
+            {
                 e.technicalContactUrl = row["technical_contact_url"].as<std::string>();
+            }
             if (!row["technical_information_url"].isNull())
+            {
                 e.technicalInformationUrl = row["technical_information_url"].as<std::string>();
+            }
             if (!row["service_description"].isNull())
+            {
                 e.serviceDescription = row["service_description"].as<std::string>();
+            }
+
             return e;
         }
 
@@ -49,6 +63,7 @@ namespace SMPPlusPlus
             p.processScheme     = row["process_scheme"].as<std::string>();
             p.processValue      = row["process_value"].as<std::string>();
             p.createdAt         = row["created_at"].as<std::string>();
+
             return p;
         }
 
@@ -59,6 +74,7 @@ namespace SMPPlusPlus
             s.documentTypeScheme = row["document_type_scheme"].as<std::string>();
             s.documentTypeValue  = row["document_type_value"].as<std::string>();
             s.createdAt          = row["created_at"].as<std::string>();
+
             return s;
         }
 
@@ -74,7 +90,8 @@ namespace SMPPlusPlus
         auto db = drogon::app().getFastDbClient("default");
         std::vector<Participant> results;
 
-        try {
+        try
+        {
             auto rows = co_await db->execSqlCoro(
                 "SELECT id, tenant_id, identifier_scheme, identifier_value, "
                 "created_at, created_by FROM participants "
@@ -183,14 +200,12 @@ namespace SMPPlusPlus
         std::vector<ServiceMetadata> results;
 
         try {
-            // Verify participant belongs to tenant first
             auto check = co_await db->execSqlCoro(
                 "SELECT 1 FROM participants WHERE id = $1 AND tenant_id = $2 LIMIT 1",
                 participantId, tenantId
             );
             if (check.empty()) co_return results;
 
-            // Fetch service metadata
             auto smRows = co_await db->execSqlCoro(
                 "SELECT id, participant_id, document_type_scheme, document_type_value, "
                 "created_at FROM service_metadata WHERE participant_id = $1 "
@@ -201,7 +216,6 @@ namespace SMPPlusPlus
             for (const auto& smRow : smRows) {
                 ServiceMetadata sm = rowToServiceMetadata(smRow);
 
-                // Fetch processes for this service metadata
                 auto procRows = co_await db->execSqlCoro(
                     "SELECT id, service_metadata_id, process_scheme, process_value, "
                     "created_at FROM processes WHERE service_metadata_id = $1 "
@@ -212,7 +226,6 @@ namespace SMPPlusPlus
                 for (const auto& procRow : procRows) {
                     Process proc = rowToProcess(procRow);
 
-                    // Fetch endpoints for this process
                     auto epRows = co_await db->execSqlCoro(
                         "SELECT id, process_id, transport_profile, endpoint_url, "
                         "ap_certificate_pem, require_bls, service_activation_date, "
@@ -443,6 +456,86 @@ namespace SMPPlusPlus
         } catch (const drogon::orm::DrogonDbException& e) {
             LOG_ERROR << "[ParticipantRepository] removeEndpoint: " << e.base().what();
             co_return false;
+        }
+    }
+
+    // =============================================================================
+    // One-shot complete service creation - atomic transaction
+    // =============================================================================
+    drogon::Task<std::optional<ServiceMetadata>> ParticipantRepository::createComplete(
+        const std::string&            participantId,
+        const CompleteServiceRequest& req)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+        std::string serviceId;
+
+        try
+        {
+            {
+                // Transaction commits automatically when trans goes out of scope
+                // without an exception being thrown.
+                auto trans = co_await db->newTransactionCoro();
+
+                // 1. Check doc type uniqueness within the transaction
+                auto dupCheck = co_await trans->execSqlCoro(
+                    "SELECT 1 FROM service_metadata "
+                    "WHERE participant_id = $1 "
+                    "AND document_type_scheme = $2 "
+                    "AND document_type_value = $3 LIMIT 1",
+                    participantId, req.documentTypeScheme, req.documentTypeValue
+                );
+                if (!dupCheck.empty()) {
+                    LOG_WARN << "[ParticipantRepository] createComplete: "
+                                "duplicate document type for participant " << participantId;
+                    co_return std::nullopt;
+                }
+
+                // 2. Insert service metadata
+                auto smRows = co_await trans->execSqlCoro(
+                    "INSERT INTO service_metadata "
+                    "(participant_id, document_type_scheme, document_type_value) "
+                    "VALUES ($1, $2, $3) RETURNING id",
+                    participantId, req.documentTypeScheme, req.documentTypeValue
+                );
+                serviceId = smRows[0]["id"].as<std::string>();
+
+                // 3. Insert process
+                auto procRows = co_await trans->execSqlCoro(
+                    "INSERT INTO processes "
+                    "(service_metadata_id, process_scheme, process_value) "
+                    "VALUES ($1, $2, $3) RETURNING id",
+                    serviceId, req.processScheme, req.processValue
+                );
+                const std::string processId = procRows[0]["id"].as<std::string>();
+
+                // 4. Insert endpoint
+                co_await trans->execSqlCoro(
+                    "INSERT INTO endpoints "
+                    "(process_id, transport_profile, endpoint_url, ap_certificate_pem, "
+                    "require_bls, service_activation_date, service_expiration_date, "
+                    "technical_contact_url, technical_information_url, service_description) "
+                    "VALUES ($1, $2, $3, $4, $5, "
+                    "NULLIF($6, '')::TIMESTAMPTZ, NULLIF($7, '')::TIMESTAMPTZ, "
+                    "NULLIF($8, ''), NULLIF($9, ''), NULLIF($10, ''))",
+                    processId,
+                    req.transportProfile,
+                    req.endpointUrl,
+                    req.apCertificatePem,
+                    req.requireBls,
+                    req.serviceActivationDate,
+                    req.serviceExpirationDate,
+                    req.technicalContactUrl,
+                    req.technicalInformationUrl,
+                    req.serviceDescription
+                );
+            }
+
+            auto result = co_await findServiceById(serviceId, participantId);
+            co_return result;
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] createComplete failed: "
+                      << e.base().what();
+            co_return std::nullopt;
         }
     }
 

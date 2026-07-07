@@ -53,6 +53,29 @@ namespace SMPPlusPlus
         std::vector<Process> processes;
     };
 
+    // Used by the one-shot complete service creation endpoint
+    struct CompleteServiceRequest {
+
+        // Service metadata
+        std::string documentTypeScheme = "busdox-docid-qns";
+        std::string documentTypeValue;
+
+        // Process
+        std::string processScheme = "cenbii-procid-ubl";
+        std::string processValue;
+
+        // Endpoint
+        std::string transportProfile  = "peppol-transport-as4-v2_0";
+        std::string endpointUrl;
+        std::string apCertificatePem;
+        bool        requireBls               = false;
+        std::string serviceActivationDate;
+        std::string serviceExpirationDate;
+        std::string technicalContactUrl;
+        std::string technicalInformationUrl;
+        std::string serviceDescription;
+    };
+
     class ParticipantRepository {
     public:
         ParticipantRepository() = delete;
@@ -150,6 +173,17 @@ namespace SMPPlusPlus
         static drogon::Task<bool> removeEndpoint(
             const std::string& endpointId,
             const std::string& processId
+        );
+
+        // -------------------------------------------------------------------------
+        // One-shot complete service creation (atomic transaction)
+        // Creates service metadata + process + endpoint in a single DB transaction.
+        // Returns the created ServiceMetadata with full tree on success.
+        // Returns nullopt if any uniqueness constraint is violated.
+        // -------------------------------------------------------------------------
+        static drogon::Task<std::optional<ServiceMetadata>> createComplete(
+            const std::string&          participantId,
+            const CompleteServiceRequest& req
         );
     };
 

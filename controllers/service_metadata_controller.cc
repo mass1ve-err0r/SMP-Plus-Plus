@@ -2,9 +2,12 @@
 // Created by Saadat Baig on 29.06.26.
 //
 #include "service_metadata_controller.h"
+#include "service_metadata_request_models.h"
 #include "db/participant_repository.h"
 #include "db/tenant_repository.h"
+#include "utils/auth_utils.h"
 #include "utils/crypto_utils.h"
+#include "utils/json_utils.h"
 
 #include <drogon/drogon.h>
 
@@ -12,19 +15,6 @@
 namespace SMPPlusPlus
 {
     namespace {
-
-        drogon::HttpResponsePtr jsonOk(const Json::Value& body) {
-            auto resp = drogon::HttpResponse::newHttpJsonResponse(body);
-            resp->setStatusCode(drogon::k200OK);
-            return resp;
-        }
-
-        drogon::HttpResponsePtr jsonCreated(const Json::Value& body) {
-            auto resp = drogon::HttpResponse::newHttpJsonResponse(body);
-            resp->setStatusCode(drogon::k201Created);
-            return resp;
-        }
-
         drogon::HttpResponsePtr jsonError(drogon::HttpStatusCode code,
                                           const std::string& message) {
             Json::Value body;
@@ -54,6 +44,16 @@ namespace SMPPlusPlus
             co_return false;
         }
 
+        // Validate PEM is a parseable X.509 certificate
+        bool isValidPem(const std::string& pem) {
+            auto result = CryptoUtils::certFingerprint(pem);
+            return result.has_value();
+        }
+
+    } // anonymous namespace
+
+    namespace Transformations
+    {
         Json::Value endpointToJson(const Endpoint& e) {
             Json::Value v;
             v["id"]                        = e.id;
@@ -68,6 +68,7 @@ namespace SMPPlusPlus
             v["technical_information_url"] = e.technicalInformationUrl;
             v["service_description"]       = e.serviceDescription;
             v["created_at"]                = e.createdAt;
+
             return v;
         }
 
@@ -79,8 +80,12 @@ namespace SMPPlusPlus
             v["process_value"]       = p.processValue;
             v["created_at"]          = p.createdAt;
             v["endpoints"]           = Json::arrayValue;
+
             for (const auto& e : p.endpoints)
+            {
                 v["endpoints"].append(endpointToJson(e));
+            }
+
             return v;
         }
 
@@ -92,18 +97,179 @@ namespace SMPPlusPlus
             v["document_type_value"]  = s.documentTypeValue;
             v["created_at"]           = s.createdAt;
             v["processes"]            = Json::arrayValue;
+
             for (const auto& p : s.processes)
+            {
                 v["processes"].append(processToJson(p));
+            }
+
             return v;
         }
 
-        // Validate PEM is a parseable X.509 certificate
-        bool isValidPem(const std::string& pem) {
-            auto result = CryptoUtils::certFingerprint(pem);
-            return result.has_value();
+        std::optional<std::string> parseEndpoint(
+            const Json::Value& endpoint,
+            CompleteServiceInput::Endpoint& out,
+            std::size_t processIndex,
+            std::size_t endpointIndex)
+        {
+            const auto prefix = "processes["+ std::to_string(processIndex) +"].endpoints[" + std::to_string(endpointIndex) + "].";
+
+            if (!endpoint.isObject())
+            {
+                return prefix + "must be an object";
+            }
+
+            if (!JsonUtils::hasNonEmptyString(endpoint, "endpoint_url"))
+            {
+                return prefix + "endpoint_url is required";
+            }
+
+            if (!JsonUtils::hasNonEmptyString(endpoint, "ap_certificate_pem"))
+            {
+                return prefix + "ap_certificate_pem is required";
+            }
+
+            out.transportProfile = JsonUtils::stringOrDefault(endpoint, "transport_profile", "peppol-transport-as4-v2_0");
+            out.endpointUrl = endpoint["endpoint_url"].asString();
+            out.apCertificatePem = endpoint["ap_certificate_pem"].asString();
+            out.requireBls = endpoint.isMember("require_bls") ? endpoint["require_bls"].asBool() : false;
+            out.serviceActivationDate = JsonUtils::stringOrEmpty(endpoint, "service_activation_date");
+            out.serviceExpirationDate = JsonUtils::stringOrEmpty(endpoint, "service_expiration_date");
+            out.technicalContactUrl = JsonUtils::stringOrEmpty(endpoint, "technical_contact_url");
+            out.technicalInformationUrl = JsonUtils::stringOrEmpty(endpoint, "technical_information_url");
+            out.serviceDescription = JsonUtils::stringOrEmpty(endpoint, "service_description");
+
+            if (!isValidPem(out.apCertificatePem))
+            {
+                return prefix + "ap_certificate_pem is not a valid X.509 PEM certificate";
+            }
+
+            return std::nullopt;
+        }
+        
+        std::optional<std::string> parseCompleteServiceInput(
+            const Json::Value& body,
+            CompleteServiceInput& out)
+        {
+            if (!body.isObject())
+            {
+                return "JSON body must be an object";
+            }
+
+            if (!JsonUtils::hasNonEmptyString(body, "document_type_value"))
+            {
+                return "Field 'document_type_value' is required";
+            }
+
+            if (!body.isMember("processes") || !body["processes"].isArray() || body["processes"].empty())
+            {
+                return "Field 'processes' must be a non-empty array";
+            }
+
+            out.documentTypeScheme = JsonUtils::stringOrDefault(body, "document_type_scheme", "busdox-docid-qns");
+            out.documentTypeValue = body["document_type_value"].asString();
+            out.processes.clear();
+
+            std::set<std::pair<std::string, std::string>> seenProcesses;
+            for (Json::ArrayIndex i = 0; i < body["processes"].size(); ++i)
+            {
+                const auto& process = body["processes"][i];
+                const auto prefix = "processes[" + std::to_string(i) + "].";
+
+                if (!process.isObject()) {
+                    return prefix + "must be an object";
+                }
+
+                if (!JsonUtils::hasNonEmptyString(process, "process_value")) {
+                    return prefix + "process_value is required";
+                }
+
+                if (!process.isMember("endpoints") || !process["endpoints"].isArray() ||
+                process["endpoints"].empty())
+                {
+                    return prefix + "endpoints must be a non-empty array";
+                }
+
+                CompleteServiceInput::Process parsedProcess;
+                parsedProcess.processScheme = JsonUtils::stringOrDefault(process, "process_scheme", "cenbii-procid-ubl");
+                parsedProcess.processValue = process["process_value"].asString();
+
+                const auto processKey = std::make_pair(
+                parsedProcess.processScheme,
+                parsedProcess.processValue
+                );
+
+                if (!seenProcesses.insert(processKey).second)
+                {
+                    return "Duplicate process in request for process_scheme/process_value";
+                }
+
+                for (Json::ArrayIndex j = 0; j < process["endpoints"].size(); ++j)
+                {
+                    CompleteServiceInput::Endpoint parsedEndpoint;
+                    if (auto error = parseEndpoint(process["endpoints"][j], parsedEndpoint, i, j))
+                    {
+                        return error;
+                    }
+                    parsedProcess.endpoints.push_back(std::move(parsedEndpoint));
+                }
+
+                out.processes.push_back(std::move(parsedProcess));
+            }
+
+            return std::nullopt;
         }
 
-    } // anonymous namespace
+        std::vector<CompleteServiceRequest> toCompleteServiceRequests(const CompleteServiceInput& input)
+        {
+            std::vector<CompleteServiceRequest> requests;
+            requests.reserve(input.processes.size());
+
+            for (const auto& process : input.processes) {
+                if (process.endpoints.empty()) {
+                    continue;
+                }
+
+                const auto& endpoint = process.endpoints.front();
+
+                CompleteServiceRequest request;
+                request.documentTypeScheme = input.documentTypeScheme;
+                request.documentTypeValue = input.documentTypeValue;
+
+                request.processScheme = process.processScheme;
+                request.processValue = process.processValue;
+
+                request.transportProfile = endpoint.transportProfile;
+                request.endpointUrl = endpoint.endpointUrl;
+                request.apCertificatePem = endpoint.apCertificatePem;
+                request.requireBls = endpoint.requireBls;
+                request.serviceActivationDate = endpoint.serviceActivationDate;
+                request.serviceExpirationDate = endpoint.serviceExpirationDate;
+                request.technicalContactUrl = endpoint.technicalContactUrl;
+                request.technicalInformationUrl = endpoint.technicalInformationUrl;
+                request.serviceDescription = endpoint.serviceDescription;
+
+                requests.push_back(std::move(request));
+            }
+
+            return requests;
+        }
+
+        bool containsProcess(
+            const ServiceMetadata& service,
+            const std::string& processScheme,
+            const std::string& processValue)
+        {
+            for (const auto& process : service.processes) {
+                if (process.processScheme == processScheme &&
+                    process.processValue == processValue)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    } // namespace Transformations
 
     // =============================================================================
     // Service Metadata
@@ -116,18 +282,21 @@ namespace SMPPlusPlus
         std::string participantId)
     {
         if (!co_await hasAccessToTenant(req, tenantId)) {
-            callback(jsonError(drogon::k403Forbidden, "Access denied"));
+            auto resp = JsonUtils::error(drogon::k403Forbidden, "Access denied");
+            callback(resp);
             co_return;
         }
 
-        auto services = co_await ParticipantRepository::findServicesByParticipantId(
-            participantId, tenantId);
+        auto services = co_await ParticipantRepository::findServicesByParticipantId(participantId, tenantId);
 
         Json::Value body(Json::arrayValue);
         for (const auto& s : services)
-            body.append(serviceToJson(s));
+        {
+            body.append(Transformations::serviceToJson(s));
+        }
 
-        callback(jsonOk(body));
+        auto resp = JsonUtils::ok(body);
+        callback(resp);
     }
 
     drogon::Task<> ServiceMetadataController::getService(
@@ -142,14 +311,14 @@ namespace SMPPlusPlus
             co_return;
         }
 
-        auto service = co_await ParticipantRepository::findServiceById(
-            serviceId, participantId);
+        auto service = co_await ParticipantRepository::findServiceById(serviceId, participantId);
         if (!service) {
             callback(jsonError(drogon::k404NotFound, "Service not found"));
             co_return;
         }
 
-        callback(jsonOk(serviceToJson(*service)));
+        auto resp = JsonUtils::ok(Transformations::serviceToJson(*service));
+        callback(resp);
     }
 
     // POST body: {
@@ -215,7 +384,8 @@ namespace SMPPlusPlus
             co_return;
         }
 
-        callback(jsonCreated(serviceToJson(*created)));
+        auto resp = JsonUtils::created(Transformations::serviceToJson(*created));
+        callback(resp);
     }
 
     drogon::Task<> ServiceMetadataController::removeService(
@@ -304,7 +474,8 @@ namespace SMPPlusPlus
         auto updated = co_await ParticipantRepository::findServiceById(
             serviceId, participantId);
 
-        callback(jsonCreated(serviceToJson(*updated)));
+        auto resp = JsonUtils::created(Transformations::serviceToJson(*updated));
+        callback(resp);
     }
 
     drogon::Task<> ServiceMetadataController::removeProcess(
@@ -328,6 +499,215 @@ namespace SMPPlusPlus
         auto resp = drogon::HttpResponse::newHttpResponse();
         resp->setStatusCode(drogon::k204NoContent);
         callback(resp);
+    }
+
+    drogon::Task<> ServiceMetadataController::createCompleteInline(drogon::HttpRequestPtr req,
+            std::function<void(const drogon::HttpResponsePtr&)> callback,
+            std::string tenantId, std::string participantId)
+    {
+        if (!co_await hasAccessToTenant(req, tenantId))
+        {
+            auto resp = JsonUtils::error(drogon::k403Forbidden, "Access denied");
+            callback(resp);
+            co_return;
+        }
+
+        auto participant = co_await ParticipantRepository::findById(participantId, tenantId);
+        if (!participant)
+        {
+            auto resp = JsonUtils::error(drogon::k404NotFound, "Participant not found");
+            callback(resp);
+            co_return;
+        }
+
+        const auto body = req->getJsonObject();
+        if (!body)
+        {
+            auto resp = JsonUtils::error(drogon::k400BadRequest, "JSON body required");
+            callback(resp);
+            co_return;
+        }
+
+        CompleteServiceInput input;
+        if (auto error = Transformations::parseCompleteServiceInput(*body, input))
+        {
+            callback(jsonError(drogon::k400BadRequest, *error));
+            co_return;
+        }
+
+        auto services = co_await ParticipantRepository::findServicesByParticipantId(participantId, tenantId);
+        std::optional<ServiceMetadata> existingService;
+        for (const auto& service : services)
+        {
+            if (service.documentTypeScheme == input.documentTypeScheme &&
+                service.documentTypeValue == input.documentTypeValue)
+            {
+                existingService = service;
+                break;
+            }
+        }
+        if (existingService)
+        {
+            for (const auto& process : input.processes)
+            {
+                if (Transformations::containsProcess(*existingService, process.processScheme, process.processValue))
+                {
+                    callback(jsonError(drogon::k409Conflict,"Document type and process combination already exists"));
+                    co_return;
+                }
+            }
+        }
+
+        const std::string serviceId = existingService
+        ? existingService->id
+        : co_await ParticipantRepository::createService(
+            participantId,
+            input.documentTypeScheme,
+            input.documentTypeValue
+        );
+        if (serviceId.empty()) {
+            callback(JsonUtils::error(
+                drogon::k500InternalServerError,
+                "Failed to create service metadata"
+            ));
+            co_return;
+        }
+
+        for (const auto& process : input.processes)
+        {
+            if (process.endpoints.empty()) {
+                callback(JsonUtils::error(
+                    drogon::k400BadRequest,
+                    "Each process must contain exactly one endpoint"
+                ));
+                co_return;
+            }
+
+            const auto& endpoint = process.endpoints.front();
+
+            const std::string processId = co_await ParticipantRepository::createProcess(
+                serviceId,
+                process.processScheme,
+                process.processValue
+            );
+
+            if (processId.empty()) {
+                callback(JsonUtils::error(
+                    drogon::k500InternalServerError,
+                    "Failed to create process"
+                ));
+                co_return;
+            }
+
+            const std::string endpointId = co_await ParticipantRepository::createEndpoint(
+                processId,
+                endpoint.transportProfile,
+                endpoint.endpointUrl,
+                endpoint.apCertificatePem,
+                endpoint.requireBls,
+                endpoint.serviceActivationDate,
+                endpoint.serviceExpirationDate,
+                endpoint.technicalContactUrl,
+                endpoint.technicalInformationUrl,
+                endpoint.serviceDescription
+            );
+
+            if (endpointId.empty())
+            {
+                callback(JsonUtils::error(
+                    drogon::k500InternalServerError,
+                    "Failed to create endpoint"
+                ));
+                co_return;
+            }
+        }
+
+        const auto updated = co_await ParticipantRepository::findServiceById(serviceId,participantId);
+
+        if (!updated) {
+            callback(JsonUtils::error(
+                drogon::k500InternalServerError,
+                "Service metadata created but could not be reloaded"
+            ));
+            co_return;
+        }
+
+        callback(JsonUtils::created(Transformations::serviceToJson(*updated)));
+        co_return;
+    }
+
+    drogon::Task<> ServiceMetadataController::createComplete(
+        drogon::HttpRequestPtr req,
+        std::function<void(const drogon::HttpResponsePtr&)> callback,
+        std::string tenantId,
+        std::string participantId)
+    {
+        if (!co_await AuthUtils::hasAccessToTenant(req, tenantId))
+        {
+            callback(JsonUtils::error(drogon::k403Forbidden, "Access denied"));
+            co_return;
+        }
+
+        const auto participant = co_await ParticipantRepository::findById(
+            participantId,
+            tenantId
+        );
+
+        if (!participant)
+        {
+            callback(JsonUtils::error(drogon::k404NotFound, "Participant not found"));
+            co_return;
+        }
+
+        const auto body = req->getJsonObject();
+        if (!body)
+        {
+            callback(JsonUtils::error(drogon::k400BadRequest, "JSON body required"));
+            co_return;
+        }
+
+        CompleteServiceInput input;
+        if (const auto error = Transformations::parseCompleteServiceInput(*body, input))
+        {
+            callback(JsonUtils::error(drogon::k400BadRequest, *error));
+            co_return;
+        }
+
+        const auto createRequests = Transformations::toCompleteServiceRequests(input);
+        if (createRequests.empty())
+        {
+            callback(JsonUtils::error(
+                drogon::k400BadRequest,
+                "At least one process with one endpoint is required"
+            ));
+            co_return;
+        }
+
+        Json::Value createdServices(Json::arrayValue);
+        for (const auto& createRequest : createRequests)
+        {
+            const auto created = co_await ParticipantRepository::createComplete(
+                participantId,
+                createRequest
+            );
+
+
+
+            if (!created)
+            {
+                callback(JsonUtils::error(
+                    drogon::k409Conflict,
+                    "Document type and process combination already exists"
+                ));
+                co_return;
+            }
+
+            createdServices.append(Transformations::serviceToJson(*created));
+        }
+
+        LOG_INFO << "created services";
+
+        callback(JsonUtils::created(createdServices));
     }
 
     // =============================================================================
@@ -432,7 +812,8 @@ namespace SMPPlusPlus
         auto updated = co_await ParticipantRepository::findServiceById(
             serviceId, participantId);
 
-        callback(jsonCreated(serviceToJson(*updated)));
+        auto resp = JsonUtils::created(Transformations::serviceToJson(*updated));
+        callback(resp);
     }
 
     drogon::Task<> ServiceMetadataController::removeEndpoint(
