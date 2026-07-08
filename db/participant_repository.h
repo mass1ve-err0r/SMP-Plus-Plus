@@ -197,6 +197,30 @@ namespace SMPPlusPlus
             const std::string& processId
         );
 
+        static drogon::Task<bool> updateEndpoint(
+            const std::string& endpointId,
+            const std::string& processId,
+            const std::string& transportProfile,
+            const std::string& endpointUrl,
+            const std::string& apCertificatePem,
+            bool               requireBls,
+            const std::string& serviceActivationDate,
+            const std::string& serviceExpirationDate,
+            const std::string& technicalContactUrl,
+            const std::string& technicalInformationUrl,
+            const std::string& serviceDescription
+        );
+
+        /**
+         * Load a single endpoint by (endpointId, processId). Used by the
+         * controller's PATCH handler to fetch the current row before merging
+         * partial updates.
+         */
+        static drogon::Task<std::optional<Endpoint>> findEndpointById(
+            const std::string& endpointId,
+            const std::string& processId
+        );
+
         // -------------------------------------------------------------------------
         // One-shot complete service creation (atomic transaction)
         // -------------------------------------------------------------------------

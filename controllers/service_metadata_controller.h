@@ -23,6 +23,7 @@ namespace SMPPlusPlus
      *
      * Endpoints (under a process):
      * POST   /api/management/tenants/:tenantId/participants/:participantId/services/:serviceId/processes/:processId/endpoints
+     * PATCH  /api/management/tenants/:tenantId/participants/:participantId/services/:serviceId/processes/:processId/endpoints/:endpointId
      * DELETE /api/management/tenants/:tenantId/participants/:participantId/services/:serviceId/processes/:processId/endpoints/:endpointId
      */
     class ServiceMetadataController : public drogon::HttpController<ServiceMetadataController> {
@@ -69,6 +70,10 @@ namespace SMPPlusPlus
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/{serviceId}/processes/{processId}/endpoints",
                 drogon::Post, "SMPPlusPlus::SessionOrBasicAuthFilter");
 
+            ADD_METHOD_TO(ServiceMetadataController::updateEndpoint,
+                "/api/management/tenants/{tenantId}/participants/{participantId}/services/{serviceId}/processes/{processId}/endpoints/{endpointId}",
+                drogon::Patch, "SMPPlusPlus::SessionOrBasicAuthFilter");
+
             ADD_METHOD_TO(ServiceMetadataController::removeEndpoint,
                 "/api/management/tenants/{tenantId}/participants/{participantId}/services/{serviceId}/processes/{processId}/endpoints/{endpointId}",
                 drogon::Delete, "SMPPlusPlus::SessionOrBasicAuthFilter");
@@ -114,6 +119,11 @@ namespace SMPPlusPlus
             std::function<void(const drogon::HttpResponsePtr&)> callback,
             std::string tenantId, std::string participantId,
             std::string serviceId, std::string processId);
+
+        drogon::Task<> updateEndpoint(drogon::HttpRequestPtr req,
+            std::function<void(const drogon::HttpResponsePtr&)> callback,
+            std::string tenantId, std::string participantId,
+            std::string serviceId, std::string processId, std::string endpointId);
 
         drogon::Task<> removeEndpoint(drogon::HttpRequestPtr req,
             std::function<void(const drogon::HttpResponsePtr&)> callback,

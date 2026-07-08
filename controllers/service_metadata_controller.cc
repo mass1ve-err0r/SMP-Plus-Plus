@@ -839,5 +839,159 @@ namespace SMPPlusPlus
         resp->setStatusCode(drogon::k204NoContent);
         callback(resp);
     }
+    
+    // =============================================================================
+    // PATCH /api/management/tenants/:tenantId/participants/:participantId
+    //       /services/:serviceId/processes/:processId/endpoints/:endpointId
+    //
+    // Partial update - any field not present in the body is left as-is.
+    // The client sends only the fields it wants to change.
+    //
+    // Body (all fields optional):
+    //   {
+    //     "transport_profile":         "peppol-transport-as4-v2_0",
+    //     "endpoint_url":              "https://ap.example.com/as4",
+    //     "ap_certificate_pem":        "-----BEGIN CERTIFICATE-----\n...",
+    //     "require_bls":               false,
+    //     "service_activation_date":   "2025-01-01T00:00:00Z",
+    //     "service_expiration_date":   "2027-01-01T00:00:00Z",
+    //     "technical_contact_url":     "https://support.example.com",
+    //     "technical_information_url": "https://info.example.com",
+    //     "service_description":       "Peppol AP for ACME"
+    //   }
+    //
+    // Returns the full updated service tree for the UI to re-render.
+    // =============================================================================
+    drogon::Task<> ServiceMetadataController::updateEndpoint(
+        drogon::HttpRequestPtr req,
+        std::function<void(const drogon::HttpResponsePtr&)> callback,
+        std::string tenantId,
+        std::string participantId,
+        std::string serviceId,
+        std::string processId,
+        std::string endpointId)
+    {
+        if (!co_await hasAccessToTenant(req, tenantId)) {
+            callback(jsonError(drogon::k403Forbidden, "Access denied"));
+            co_return;
+        }
+
+        // Load current endpoint - anything not present in the PATCH body
+        // is preserved from this snapshot.
+        auto current = co_await ParticipantRepository::findEndpointById(
+            endpointId, processId);
+        if (!current) {
+            callback(jsonError(drogon::k404NotFound, "Endpoint not found"));
+            co_return;
+        }
+
+        const auto body = req->getJsonObject();
+        if (!body) {
+            callback(jsonError(drogon::k400BadRequest, "JSON body required"));
+            co_return;
+        }
+
+        // Merge: prefer body field if present and non-empty; otherwise
+        // fall back to the current value. Empty strings in the body are
+        // treated as "clear the field" for optional text fields, but for
+        // required fields (endpoint_url, ap_certificate_pem, transport_profile)
+        // an empty value is rejected.
+
+        // -- Required fields (reject empty overrides) --
+        std::string transportProfile = current->transportProfile;
+        if (body->isMember("transport_profile")) {
+            const std::string v = (*body)["transport_profile"].asString();
+            if (v.empty()) {
+                callback(jsonError(drogon::k400BadRequest,
+                    "Field 'transport_profile' cannot be empty"));
+                co_return;
+            }
+            transportProfile = v;
+        }
+
+        std::string endpointUrl = current->endpointUrl;
+        if (body->isMember("endpoint_url")) {
+            const std::string v = (*body)["endpoint_url"].asString();
+            if (v.empty()) {
+                callback(jsonError(drogon::k400BadRequest,
+                    "Field 'endpoint_url' cannot be empty"));
+                co_return;
+            }
+            endpointUrl = v;
+        }
+
+        std::string apCertificatePem = current->apCertificatePem;
+        if (body->isMember("ap_certificate_pem")) {
+            const std::string v = (*body)["ap_certificate_pem"].asString();
+            if (v.empty()) {
+                callback(jsonError(drogon::k400BadRequest,
+                    "Field 'ap_certificate_pem' cannot be empty"));
+                co_return;
+            }
+            if (!isValidPem(v)) {
+                callback(jsonError(drogon::k400BadRequest,
+                    "Field 'ap_certificate_pem' is not a valid X.509 PEM certificate"));
+                co_return;
+            }
+            apCertificatePem = v;
+        }
+
+        // -- Bool field --
+        const bool requireBls = body->isMember("require_bls")
+            ? (*body)["require_bls"].asBool()
+            : current->requireBls;
+
+        // -- Optional text/date fields (empty string means clear) --
+        const std::string activationDate = body->isMember("service_activation_date")
+            ? (*body)["service_activation_date"].asString()
+            : current->serviceActivationDate;
+
+        const std::string expirationDate = body->isMember("service_expiration_date")
+            ? (*body)["service_expiration_date"].asString()
+            : current->serviceExpirationDate;
+
+        const std::string contactUrl = body->isMember("technical_contact_url")
+            ? (*body)["technical_contact_url"].asString()
+            : current->technicalContactUrl;
+
+        const std::string infoUrl = body->isMember("technical_information_url")
+            ? (*body)["technical_information_url"].asString()
+            : current->technicalInformationUrl;
+
+        const std::string description = body->isMember("service_description")
+            ? (*body)["service_description"].asString()
+            : current->serviceDescription;
+
+        const bool updated = co_await ParticipantRepository::updateEndpoint(
+            endpointId, processId,
+            transportProfile, endpointUrl, apCertificatePem, requireBls,
+            activationDate, expirationDate,
+            contactUrl, infoUrl, description
+        );
+
+        if (!updated) {
+            // Most likely a UNIQUE (process_id, transport_profile) violation
+            // when the client changed transport_profile to one already used
+            // by a sibling endpoint under the same process.
+            callback(jsonError(drogon::k409Conflict,
+                "Failed to update endpoint - transport profile may conflict "
+                "with another endpoint on the same process"));
+            co_return;
+        }
+
+        // Return the full updated service tree so the UI can re-render.
+        auto refreshed = co_await ParticipantRepository::findServiceById(
+            serviceId, participantId);
+        if (!refreshed) {
+            callback(jsonError(drogon::k500InternalServerError,
+                "Endpoint updated but service could not be reloaded"));
+            co_return;
+        }
+
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(
+            Transformations::serviceToJson(*refreshed));
+        resp->setStatusCode(drogon::k200OK);
+        callback(resp);
+    }
 
 } // namespace SMPPlusPlus

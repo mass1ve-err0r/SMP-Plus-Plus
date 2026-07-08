@@ -22,8 +22,8 @@ namespace SMPPlusPlus
     class HealthController : public drogon::HttpController<HealthController> {
     public:
         METHOD_LIST_BEGIN
-            ADD_METHOD_TO(HealthController::health, "/health", drogon::Get);
-            ADD_METHOD_TO(HealthController::healthAuth, "/health/auth", drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
+            ADD_METHOD_TO(HealthController::health, "/api/health", drogon::Get);
+            ADD_METHOD_TO(HealthController::healthAuth, "/api/health/auth", drogon::Get, "SMPPlusPlus::SessionOrBasicAuthFilter");
         METHOD_LIST_END
 
         void health(

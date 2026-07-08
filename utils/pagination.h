@@ -58,8 +58,8 @@ namespace SMPPlusPlus
 
         // Bounds enforced during parsing
         static constexpr int MIN_LIMIT     = 1;
-        static constexpr int MAX_LIMIT     = 200;
-        static constexpr int DEFAULT_LIMIT = 25;
+        static constexpr int MAX_LIMIT     = 500;
+        static constexpr int DEFAULT_LIMIT = 250;
 
         /**
          * Parse pagination parameters from a request's query string.

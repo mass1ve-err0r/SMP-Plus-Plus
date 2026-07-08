@@ -27,13 +27,18 @@ namespace SMPPlusPlus
                 drogon::Get,
                 "SMPPlusPlus::SessionOrBasicAuthFilter");
 
-            ADD_METHOD_TO(ParticipantController::getOne,
-                "/api/management/tenants/{tenantId}/participants/{id}",
+            ADD_METHOD_TO(ParticipantController::getAllThinned,
+                "/api/management/tenants/{tenantId}/participantsThinned",
                 drogon::Get,
                 "SMPPlusPlus::SessionOrBasicAuthFilter");
 
             ADD_METHOD_TO(ParticipantController::getPaged,
-                "/api/management/tenants/{tenantId}/participants/paged",
+                    "/api/management/tenants/{tenantId}/participants/paged",
+                    drogon::Get,
+                    "SMPPlusPlus::SessionOrBasicAuthFilter");
+
+            ADD_METHOD_TO(ParticipantController::getOne,
+                "/api/management/tenants/{tenantId}/participants/{id}",
                 drogon::Get,
                 "SMPPlusPlus::SessionOrBasicAuthFilter");
 
@@ -49,6 +54,12 @@ namespace SMPPlusPlus
         METHOD_LIST_END
 
         drogon::Task<> getAll(
+            drogon::HttpRequestPtr req,
+            std::function<void(const drogon::HttpResponsePtr&)> callback,
+            std::string tenantId
+        );
+
+        drogon::Task<> getAllThinned(
             drogon::HttpRequestPtr req,
             std::function<void(const drogon::HttpResponsePtr&)> callback,
             std::string tenantId

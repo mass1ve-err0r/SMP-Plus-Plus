@@ -127,7 +127,7 @@ namespace SMPPlusPlus
                 "  e.endpoint_url         ILIKE '%' || $2 || '%'"
                 ") "
                 "ORDER BY " + safeOrderBy + " " + safeDirection + ", e.id ASC "
-                "LIMIT $3 OFFSET $4";
+                "LIMIT $3::int OFFSET $4::int";
 
             auto rows = co_await db->execSqlCoro(
                 dataSql, tenantId, search, limit, offset

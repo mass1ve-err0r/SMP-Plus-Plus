@@ -240,7 +240,7 @@ namespace SMPPlusPlus
                 "  identifier_scheme ILIKE '%' || $2 || '%'"
                 ") "
                 "ORDER BY " + safeOrderBy + " " + safeDirection + ", id ASC "
-                "LIMIT $3 OFFSET $4";
+                "LIMIT $3::int OFFSET $4::int";
 
             auto rows = co_await db->execSqlCoro(
                 dataSql, tenantId, search, limit, offset
@@ -533,6 +533,72 @@ namespace SMPPlusPlus
             co_return result.affectedRows() > 0;
         } catch (const drogon::orm::DrogonDbException& e) {
             LOG_ERROR << "[ParticipantRepository] removeEndpoint: " << e.base().what();
+            co_return false;
+        }
+    }
+
+    drogon::Task<std::optional<Endpoint>> ParticipantRepository::findEndpointById(
+    const std::string& endpointId,
+    const std::string& processId)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto rows = co_await db->execSqlCoro(
+                "SELECT id, process_id, transport_profile, endpoint_url, "
+                "ap_certificate_pem, require_bls, service_activation_date, "
+                "service_expiration_date, technical_contact_url, "
+                "technical_information_url, service_description, created_at "
+                "FROM endpoints "
+                "WHERE id = $1 AND process_id = $2 LIMIT 1",
+                endpointId, processId
+            );
+            if (!rows.empty()) co_return rowToEndpoint(rows[0]);
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] findEndpointById: "
+                      << e.base().what();
+        }
+
+        co_return std::nullopt;
+    }
+
+    drogon::Task<bool> ParticipantRepository::updateEndpoint(
+        const std::string& endpointId,
+        const std::string& processId,
+        const std::string& transportProfile,
+        const std::string& endpointUrl,
+        const std::string& apCertificatePem,
+        bool               requireBls,
+        const std::string& serviceActivationDate,
+        const std::string& serviceExpirationDate,
+        const std::string& technicalContactUrl,
+        const std::string& technicalInformationUrl,
+        const std::string& serviceDescription)
+    {
+        auto db = drogon::app().getFastDbClient("default");
+
+        try {
+            auto result = co_await db->execSqlCoro(
+                "UPDATE endpoints SET "
+                "  transport_profile         = $3, "
+                "  endpoint_url              = $4, "
+                "  ap_certificate_pem        = $5, "
+                "  require_bls               = $6, "
+                "  service_activation_date   = NULLIF($7,  '')::TIMESTAMPTZ, "
+                "  service_expiration_date   = NULLIF($8,  '')::TIMESTAMPTZ, "
+                "  technical_contact_url     = NULLIF($9,  ''), "
+                "  technical_information_url = NULLIF($10, ''), "
+                "  service_description       = NULLIF($11, '') "
+                "WHERE id = $1 AND process_id = $2",
+                endpointId, processId,
+                transportProfile, endpointUrl, apCertificatePem, requireBls,
+                serviceActivationDate, serviceExpirationDate,
+                technicalContactUrl, technicalInformationUrl, serviceDescription
+            );
+            co_return result.affectedRows() > 0;
+        } catch (const drogon::orm::DrogonDbException& e) {
+            LOG_ERROR << "[ParticipantRepository] updateEndpoint: "
+                      << e.base().what();
             co_return false;
         }
     }

@@ -57,6 +57,15 @@ namespace SMPPlusPlus
             return v;
         }
 
+        Json::Value participantToJsonThin(const Participant& p)
+        {
+            Json::Value v;
+            v["id"]                = p.id;
+            v["peppol_id"]         = p.identifierScheme + "::" + p.identifierValue;
+
+            return v;
+        }
+
         // Verify the requesting user has access to the given tenant
         drogon::Task<bool> hasAccessToTenant(
             const drogon::HttpRequestPtr& req,
@@ -91,6 +100,25 @@ namespace SMPPlusPlus
         Json::Value body(Json::arrayValue);
         for (const auto& p : participants)
             body.append(participantToJson(p));
+
+        callback(jsonOk(body));
+    }
+
+    drogon::Task<> ParticipantController::getAllThinned(
+        drogon::HttpRequestPtr req,
+        std::function<void(const drogon::HttpResponsePtr&)> callback,
+        std::string tenantId)
+    {
+        if (!co_await hasAccessToTenant(req, tenantId)) {
+            callback(jsonError(drogon::k403Forbidden, "Access denied"));
+            co_return;
+        }
+
+        auto participants = co_await ParticipantRepository::findByTenantId(tenantId);
+
+        Json::Value body(Json::arrayValue);
+        for (const auto& p : participants)
+            body.append(participantToJsonThin(p));
 
         callback(jsonOk(body));
     }
