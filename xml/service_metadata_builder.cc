@@ -10,9 +10,8 @@
 
 namespace SMPPlusPlus
 {
-    pugi::xml_document ServiceMetadataBuilder::build(
-        const Participant&     participant,
-        const ServiceMetadata& service) const
+    pugi::xml_document
+    ServiceMetadataBuilder::build(const Participant& participant, const ServiceMetadata& service) const
     {
         pugi::xml_document doc;
 
@@ -39,7 +38,8 @@ namespace SMPPlusPlus
         // <ProcessList>
         auto processList = si.append_child("smp:ProcessList");
 
-        for (const auto& process : service.processes) {
+        for (const auto& process : service.processes)
+        {
             auto proc = processList.append_child("smp:Process");
 
             // <ProcessIdentifier>
@@ -50,7 +50,8 @@ namespace SMPPlusPlus
             // <ServiceEndpointList>
             auto endpointList = proc.append_child("smp:ServiceEndpointList");
 
-            for (const auto& endpoint : process.endpoints) {
+            for (const auto& endpoint : process.endpoints)
+            {
                 appendEndpoint(endpointList, endpoint);
             }
         }
@@ -58,9 +59,8 @@ namespace SMPPlusPlus
         return doc;
     }
 
-    void ServiceMetadataBuilder::appendEndpoint(
-        pugi::xml_node& endpointList,
-        const Endpoint& endpoint) const
+    void
+    ServiceMetadataBuilder::appendEndpoint(pugi::xml_node& endpointList, const Endpoint& endpoint) const
     {
         auto ep = endpointList.append_child("smp:Endpoint");
         ep.append_attribute("transportProfile") = endpoint.transportProfile.c_str();
@@ -78,27 +78,33 @@ namespace SMPPlusPlus
           .text().set(stripPemHeaders(endpoint.apCertificatePem).c_str());
 
         // <ServiceDescription> (optional)
-        if (!endpoint.serviceDescription.empty()) {
+        if (!endpoint.serviceDescription.empty())
+        {
             ep.append_child("smp:ServiceDescription")
               .text().set(endpoint.serviceDescription.c_str());
         }
 
         // <TechnicalContactUrl> (optional)
-        if (!endpoint.technicalContactUrl.empty()) {
+        if (!endpoint.technicalContactUrl.empty())
+        {
             ep.append_child("smp:TechnicalContactUrl")
               .text().set(endpoint.technicalContactUrl.c_str());
         }
     }
 
-    std::string ServiceMetadataBuilder::stripPemHeaders(const std::string& pem) {
+    std::string
+    ServiceMetadataBuilder::stripPemHeaders(const std::string& pem)
+    {
         std::string result;
         result.reserve(pem.size());
 
         std::istringstream iss(pem);
         std::string line;
-        while (std::getline(iss, line)) {
+        while (std::getline(iss, line))
+        {
             // Skip -----BEGIN...----- and -----END...----- lines
             if (line.find("-----") != std::string::npos) continue;
+
             // Strip trailing whitespace/CR
             while (!line.empty() &&
                    (line.back() == '\r' || line.back() == '\n' ||
@@ -108,6 +114,7 @@ namespace SMPPlusPlus
             }
             result += line;
         }
+
         return result;
     }
 

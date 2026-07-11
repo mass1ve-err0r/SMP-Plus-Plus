@@ -3,9 +3,11 @@
 //
 #pragma once
 
+#include <pugixml.hpp>
+
 #include <string>
 #include <vector>
-#include <pugixml.hpp>
+
 #include "db/participant_repository.h"
 #include "xml/pugi_utilities.h"
 
@@ -28,8 +30,10 @@ namespace SMPPlusPlus
      *     </ServiceMetadataReferenceCollection>
      *   </ServiceGroup>
      */
-    class ServiceGroupBuilder {
+    class ServiceGroupBuilder
+    {
     public:
+
         explicit ServiceGroupBuilder(std::string smpBaseUrl);
 
         /**
@@ -39,14 +43,14 @@ namespace SMPPlusPlus
          * @param services     All service metadata entries for this participant
          * @return             XML string ready to send as response body
          */
-        std::string build(
-            const Participant& participant,
-            const std::vector<ServiceMetadata>& services
-        ) const;
+        std::string
+        build(const Participant& participant, const std::vector<ServiceMetadata>& services) const;
 
-        void addExtensionNode(pugi::xml_node& node, size_t serviceCount) const;
+        void
+        addExtensionNode(pugi::xml_node& node, size_t serviceCount) const;
 
     private:
+
         std::string smpBaseUrl_;
 
     };

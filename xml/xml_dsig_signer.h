@@ -3,10 +3,11 @@
 //
 #pragma once
 
-#include <string>
 #include <pugixml.hpp>
-#include <tl/expected.hpp>
 #include <openssl/evp.h>
+#include <tl/expected.hpp>
+
+#include <string>
 
 
 namespace SMPPlusPlus
@@ -28,11 +29,14 @@ namespace SMPPlusPlus
      * for the duration of the call. The caller (SigningKeyCache) ensures this
      * via shared_ptr ownership during the sign operation.
      */
-    class XmlDsigSigner {
+    class XmlDsigSigner
+    {
     public:
+
         XmlDsigSigner() = delete;
 
-        struct Error {
+        struct Error
+        {
             std::string message;
         };
 
@@ -48,24 +52,22 @@ namespace SMPPlusPlus
          * @param signingCertPem      Public cert PEM to embed in KeyInfo
          * @return                    Complete SignedServiceMetadata XML string
          */
-        static Result<std::string> sign(
-            const pugi::xml_document& serviceMetadataDoc,
-            EVP_PKEY*                 privateKey,
-            const std::string&        signingCertPem
-        );
+        static Result<std::string>
+        sign(const pugi::xml_document& serviceMetadataDoc, EVP_PKEY* privateKey, const std::string& signingCertPem);
 
     private:
+
         // Strip PEM headers to get raw base64 for embedding in XML
-        static std::string stripPemHeaders(const std::string& pem);
+        static std::string
+        stripPemHeaders(const std::string& pem);
 
         // Compute SHA-256 digest and return as base64
-        static Result<std::string> sha256Base64(const std::string& data);
+        static Result<std::string>
+        sha256Base64(const std::string& data);
 
         // RSA-SHA256 sign and return as base64
-        static Result<std::string> rsaSha256Base64(
-            const std::string& data,
-            EVP_PKEY*          key
-        );
+        static Result<std::string>
+        rsaSha256Base64(const std::string& data, EVP_PKEY* key);
     };
 
 } // namespace SMPPlusPlus

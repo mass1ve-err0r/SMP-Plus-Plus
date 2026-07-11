@@ -3,8 +3,10 @@
 //
 #pragma once
 
-#include <string>
 #include <pugixml.hpp>
+
+#include <string>
+
 #include "db/participant_repository.h"
 
 
@@ -20,8 +22,10 @@ namespace SMPPlusPlus
      * and attributes sorted) so that C14N serialization is a deterministic
      * output with no reordering needed.
      */
-    class ServiceMetadataBuilder {
+    class ServiceMetadataBuilder
+    {
     public:
+
         ServiceMetadataBuilder() = default;
 
         /**
@@ -29,20 +33,18 @@ namespace SMPPlusPlus
          * The document is structured ready for signing — the signer will
          * wrap it in SignedServiceMetadata and append ds:Signature.
          */
-        pugi::xml_document build(
-            const Participant&    participant,
-            const ServiceMetadata& service
-        ) const;
+        pugi::xml_document
+        build(const Participant& participant, const ServiceMetadata& service) const;
 
     private:
-        void appendEndpoint(
-            pugi::xml_node& endpointList,
-            const Endpoint& endpoint
-        ) const;
+
+        void
+        appendEndpoint(pugi::xml_node& endpointList, const Endpoint& endpoint) const;
 
         // Strips PEM headers/footers, returns raw base64 cert data
         // The SMP spec requires the raw base64 without -----BEGIN/END----- lines
-        static std::string stripPemHeaders(const std::string& pem);
+        static std::string
+        stripPemHeaders(const std::string& pem);
     };
 
 } // namespace SMPPlusPlus

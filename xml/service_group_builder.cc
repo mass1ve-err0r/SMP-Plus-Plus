@@ -10,11 +10,11 @@
 
 namespace SMPPlusPlus
 {
-    ServiceGroupBuilder::ServiceGroupBuilder(std::string smpBaseUrl)
-        : smpBaseUrl_(std::move(smpBaseUrl))
+    ServiceGroupBuilder::ServiceGroupBuilder(std::string smpBaseUrl): smpBaseUrl_(std::move(smpBaseUrl))
     {}
 
-    std::string ServiceGroupBuilder::build(const Participant& participant, const std::vector<ServiceMetadata>& services) const
+    std::string
+    ServiceGroupBuilder::build(const Participant& participant, const std::vector<ServiceMetadata>& services) const
     {
         pugi::xml_document doc;
 
@@ -25,10 +25,10 @@ namespace SMPPlusPlus
 
         // <ServiceGroup>
         auto sg = doc.append_child("smp:ServiceGroup");
-        sg.append_attribute("xmlns:ds") = XmlNs::DSIG;
-        sg.append_attribute("xmlns:id") = XmlNs::ID;
-        sg.append_attribute("xmlns:smp") = XmlNs::SMP;
-        sg.append_attribute("xmlns:wsa") = XmlNs::WSA;
+        sg.append_attribute("xmlns:ds") = XmlNamespaces::DSIG;
+        sg.append_attribute("xmlns:id") = XmlNamespaces::ID;
+        sg.append_attribute("xmlns:smp") = XmlNamespaces::SMP;
+        sg.append_attribute("xmlns:wsa") = XmlNamespaces::WSA;
 
         // <ParticipantIdentifier>
         auto pi = sg.append_child("id:ParticipantIdentifier");
@@ -43,7 +43,8 @@ namespace SMPPlusPlus
             participant.identifierValue
         );
 
-        for (const auto& svc : services) {
+        for (const auto& svc : services)
+        {
             const std::string encodedDocType = UrlUtils::encodePeppolId(
                 svc.documentTypeScheme,
                 svc.documentTypeValue
@@ -64,13 +65,15 @@ namespace SMPPlusPlus
         // Serialize
         std::ostringstream oss;
         doc.save(oss, "  ", pugi::format_default, pugi::encoding_utf8);
+
         return oss.str();
     }
 
-    void ServiceGroupBuilder::addExtensionNode(pugi::xml_node& node, size_t serviceCount) const
+    void
+    ServiceGroupBuilder::addExtensionNode(pugi::xml_node& node, size_t serviceCount) const
     {
         auto ex = node.append_child("smp:Extension");
-        ex.append_attribute("xmlns:smppp") = XmlNs::SMP_PLUS_PLUS;
+        ex.append_attribute("xmlns:smppp") = XmlNamespaces::SMP_PLUS_PLUS;
 
         auto exSummary = SMPPlusPlus::Pugi::appendNamespacedChildFast(ex, "Summary", false);
         auto summaryTotal = SMPPlusPlus::Pugi::appendNamespacedChildFast(exSummary, "Entries", false);
