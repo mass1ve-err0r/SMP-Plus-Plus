@@ -19,17 +19,21 @@ namespace SMPPlusPlus
      *
      * All functions are stateless and thread-safe.
      */
-    class UrlUtils {
+    class UrlUtils
+    {
     public:
+
         UrlUtils() = delete;
 
         /// Percent-encode a string per RFC 3986.
         /// Unreserved characters (A-Z a-z 0-9 - _ . ~) are not encoded.
-        static std::string percentEncode(std::string_view input);
+        static std::string
+        percentEncode(std::string_view input);
 
         /// Decode a percent-encoded string.
         /// Returns nullopt if the input contains malformed percent sequences.
-        static std::optional<std::string> percentDecode(std::string_view input);
+        static std::optional<std::string>
+        percentDecode(std::string_view input);
 
         /**
          * Parse a Peppol identifier from a URL path segment.
@@ -40,22 +44,23 @@ namespace SMPPlusPlus
          *   "iso6523-actorid-upis%3A%3A0088%3A123456789"
          *   -> { "iso6523-actorid-upis", "0088:123456789" }
          */
-        struct PeppolIdentifier {
+        struct PeppolIdentifier
+        {
             std::string scheme;
             std::string value;
         };
 
-        static std::optional<PeppolIdentifier> parsePeppolId(std::string_view encoded);
+        static std::optional<PeppolIdentifier>
+        parsePeppolId(std::string_view encoded);
 
         /**
          * Encode a Peppol identifier for use in a URL path segment.
          * "iso6523-actorid-upis::0088:123456789"
          * -> "iso6523-actorid-upis%3A%3A0088%3A123456789"
          */
-        static std::string encodePeppolId(
-            std::string_view scheme,
-            std::string_view value
-        );
+        static std::string
+        encodePeppolId(std::string_view scheme, std::string_view value);
+
     };
 
 } // namespace SMPPlusPlus

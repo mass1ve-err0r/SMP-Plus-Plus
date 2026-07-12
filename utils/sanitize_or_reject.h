@@ -6,6 +6,7 @@
 #include "input_sanitizer.h"
 
 #include <drogon/drogon.h>
+
 #include <initializer_list>
 #include <string_view>
 
@@ -37,10 +38,8 @@ namespace SMPPlusPlus
      * that would otherwise be flagged (though as of writing, the forbidden set
      * does not intersect with valid PEM chars - this is defense-in-depth).
      */
-    inline bool sanitizeOrReject(
-        const Json::Value& body,
-        const std::function<void(const drogon::HttpResponsePtr&)>& callback,
-        const std::initializer_list<std::string_view>& skipKeys = {})
+    inline bool
+    sanitizeOrReject(const Json::Value& body, const std::function<void(const drogon::HttpResponsePtr&)>& callback, const std::initializer_list<std::string_view>& skipKeys = {})
     {
         auto violation = InputSanitizer::validateJson(body, skipKeys);
         if (!violation) return true;
@@ -51,7 +50,9 @@ namespace SMPPlusPlus
                        violation->forbiddenChar + "'";
         auto resp = drogon::HttpResponse::newHttpJsonResponse(err);
         resp->setStatusCode(drogon::k400BadRequest);
+
         callback(resp);
+
         return false;
     }
 

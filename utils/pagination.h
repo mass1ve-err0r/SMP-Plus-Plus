@@ -3,11 +3,12 @@
 //
 #pragma once
 
+#include <drogon/HttpRequest.h>
+
 #include <string>
 #include <string_view>
 #include <initializer_list>
 #include <algorithm>
-#include <drogon/HttpRequest.h>
 
 
 namespace SMPPlusPlus
@@ -49,12 +50,13 @@ namespace SMPPlusPlus
      *     "offset": 0
      *   }
      */
-    struct Pagination {
-        int         limit          = 25;
-        int         offset         = 0;
-        std::string orderBy        = "";     // empty = repository default
+    struct Pagination
+    {
+        int limit = 25;
+        int offset = 0;
+        std::string orderBy = "";     // empty = repository default
         std::string orderDirection = "ASC";  // always "ASC" or "DESC"
-        std::string search         = "";     // may be empty
+        std::string search = "";     // may be empty
 
         // Bounds enforced during parsing
         static constexpr int MIN_LIMIT     = 1;
@@ -73,22 +75,17 @@ namespace SMPPlusPlus
          * @param defaultOrderBy        Column used if no orderBy is provided, or
          *                              if the provided orderBy is not in the whitelist.
          */
-        static Pagination fromRequest(
-            const drogon::HttpRequestPtr& req,
-            const std::initializer_list<std::string_view>& allowedOrderColumns,
-            std::string_view defaultOrderBy);
+        static Pagination
+        fromRequest(const drogon::HttpRequestPtr& req, const std::initializer_list<std::string_view>& allowedOrderColumns, std::string_view defaultOrderBy);
 
     private:
-        static int  parseIntParam(
-            const drogon::HttpRequestPtr& req,
-            const char* name,
-            int defaultValue,
-            int minValue,
-            int maxValue);
 
-        static bool isAllowedColumn(
-            std::string_view column,
-            const std::initializer_list<std::string_view>& allowed);
+        static int
+        parseIntParam(const drogon::HttpRequestPtr& req, const char* name, int defaultValue, int minValue, int maxValue);
+
+        static bool
+        isAllowedColumn(std::string_view column, const std::initializer_list<std::string_view>& allowed);
+
     };
 
 } // namespace SMPPlusPlus

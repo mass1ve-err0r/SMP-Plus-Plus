@@ -6,41 +6,35 @@
 #include <charconv>
 #include <cctype>
 
+
 namespace SMPPlusPlus
 {
-    int Pagination::parseIntParam(
-        const drogon::HttpRequestPtr& req,
-        const char* name,
-        int defaultValue,
-        int minValue,
-        int maxValue)
+    int
+    Pagination::parseIntParam(const drogon::HttpRequestPtr& req, const char* name, int defaultValue, int minValue, int maxValue)
     {
         const std::string val = req->getParameter(name);
         if (val.empty()) return defaultValue;
 
         int parsed = 0;
-        auto [ptr, ec] = std::from_chars(
-            val.data(), val.data() + val.size(), parsed
-        );
+        auto [ptr, ec] = std::from_chars(val.data(), val.data() + val.size(), parsed);
         if (ec != std::errc{}) return defaultValue;
 
         return std::clamp(parsed, minValue, maxValue);
     }
 
-    bool Pagination::isAllowedColumn(
-        std::string_view column,
-        const std::initializer_list<std::string_view>& allowed)
+    bool
+    Pagination::isAllowedColumn(std::string_view column, const std::initializer_list<std::string_view>& allowed)
     {
-        for (auto a : allowed) {
+        for (auto a : allowed)
+        {
             if (a == column) return true;
         }
+
         return false;
     }
 
-    Pagination Pagination::fromRequest(
-        const drogon::HttpRequestPtr& req,
-        const std::initializer_list<std::string_view>& allowedOrderColumns,
-        std::string_view defaultOrderBy)
+    Pagination
+    Pagination::fromRequest(const drogon::HttpRequestPtr& req, const std::initializer_list<std::string_view>& allowedOrderColumns, std::string_view defaultOrderBy)
     {
         Pagination p;
 
@@ -58,8 +52,7 @@ namespace SMPPlusPlus
 
         // orderDirection - normalize to upper, only ASC or DESC accepted
         std::string dir = req->getParameter("orderDirection");
-        for (auto& c : dir) c = static_cast<char>(std::toupper(
-            static_cast<unsigned char>(c)));
+        for (auto& c : dir) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
         p.orderDirection = (dir == "DESC") ? "DESC" : "ASC";
 
         // search - passed through as-is. The repository is responsible for

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <json/json.h>
+
 #include <string>
 #include <string_view>
 #include <optional>
@@ -34,21 +35,26 @@ namespace SMPPlusPlus
      * We use parameterized SQL queries throughout, so this is defense-in-depth
      * against XSS and malformed data, not primary SQL injection protection.
      */
-    class InputSanitizer {
+    class InputSanitizer
+    {
     public:
+
         InputSanitizer() = delete;
 
         /// Character forbidden anywhere.
         /// Returns true if the input contains any forbidden character.
-        static bool containsForbidden(std::string_view input) noexcept;
+        static bool
+        containsForbidden(std::string_view input) noexcept;
 
         /// Returns the offending character (as a printable string) if any,
         /// otherwise nullopt. Useful for error messages.
-        static std::optional<std::string> firstForbidden(
-            std::string_view input) noexcept;
+        static std::optional<std::string>
+        firstForbidden(std::string_view input) noexcept;
 
         /// Convenience: returns true if the string is safe (no forbidden chars).
-        static bool isSafe(std::string_view input) noexcept {
+        static bool
+        isSafe(std::string_view input) noexcept
+        {
             return !containsForbidden(input);
         }
 
@@ -60,18 +66,20 @@ namespace SMPPlusPlus
         /// The `skipKeys` set names keys whose values are exempt from the check
         /// (e.g. cert_pem / private_key_pem where the base64 body could span
         /// many lines and is validated by CryptoUtils separately).
-        struct JsonViolation {
+        struct JsonViolation
+        {
             std::string path;
             std::string forbiddenChar;
         };
 
-        static std::optional<JsonViolation> validateJson(
-            const Json::Value& value,
-            const std::initializer_list<std::string_view>& skipKeys = {}
-        ) noexcept;
+        static std::optional<JsonViolation>
+        validateJson(const Json::Value& value, const std::initializer_list<std::string_view>& skipKeys = {}) noexcept;
 
     private:
-        static std::string charToDisplay(char c) noexcept;
+
+        static std::string
+        charToDisplay(char c) noexcept;
+
     };
 
 } // namespace SMPPlusPlus

@@ -11,28 +11,37 @@
 
 namespace SMPPlusPlus
 {
-    std::string UrlUtils::percentEncode(std::string_view input) {
+    std::string
+    UrlUtils::percentEncode(std::string_view input)
+    {
         std::ostringstream oss;
         oss << std::hex << std::uppercase;
 
-        for (unsigned char c : input) {
+        for (unsigned char c : input)
+        {
             // RFC 3986 unreserved characters - not encoded
-            if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
+            {
                 oss << static_cast<char>(c);
-            } else {
-                oss << '%' << std::setw(2) << std::setfill('0')
-                    << static_cast<unsigned>(c);
+            } else
+            {
+                oss << '%' << std::setw(2) << std::setfill('0') << static_cast<unsigned>(c);
             }
         }
+
         return oss.str();
     }
 
-    std::optional<std::string> UrlUtils::percentDecode(std::string_view input) {
+    std::optional<std::string>
+    UrlUtils::percentDecode(std::string_view input)
+    {
         std::string result;
         result.reserve(input.size());
 
-        for (size_t i = 0; i < input.size(); ++i) {
-            if (input[i] == '%') {
+        for (size_t i = 0; i < input.size(); ++i)
+        {
+            if (input[i] == '%')
+            {
                 if (i + 2 >= input.size()) return std::nullopt;
 
                 uint8_t byte{};
@@ -45,17 +54,20 @@ namespace SMPPlusPlus
 
                 result += static_cast<char>(byte);
                 i += 2;
-            } else if (input[i] == '+') {
+            } else if (input[i] == '+')
+            {
                 result += ' ';
-            } else {
+            } else
+            {
                 result += input[i];
             }
         }
+
         return result;
     }
 
-    std::optional<UrlUtils::PeppolIdentifier> UrlUtils::parsePeppolId(
-        std::string_view encoded)
+    std::optional<UrlUtils::PeppolIdentifier>
+    UrlUtils::parsePeppolId(std::string_view encoded)
     {
         auto decoded = percentDecode(encoded);
         if (!decoded) return std::nullopt;
@@ -70,9 +82,8 @@ namespace SMPPlusPlus
         };
     }
 
-    std::string UrlUtils::encodePeppolId(
-        std::string_view scheme,
-        std::string_view value)
+    std::string
+    UrlUtils::encodePeppolId(std::string_view scheme, std::string_view value)
     {
         // Encode scheme::value — the "::" and any ":" in value get encoded
         std::string combined;
@@ -80,6 +91,7 @@ namespace SMPPlusPlus
         combined += scheme;
         combined += "::";
         combined += value;
+
         return percentEncode(combined);
     }
 

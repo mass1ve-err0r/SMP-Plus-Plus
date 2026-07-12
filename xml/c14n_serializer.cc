@@ -187,7 +187,6 @@ namespace SMPPlusPlus
 
             const std::string prefix = qnamePrefix(name);
 
-            //TODO: replace with emplace_back for optimization
             regularAttributes.push_back({
                 name,
                 attr.value(),
@@ -282,7 +281,6 @@ namespace SMPPlusPlus
     {
         for (const char c : text)
         {
-            //TODO: remove inline-style notation because jesus christ, we do NOT want LLVM to fuck us over
             switch (c)
             {
                 case '&':  out += "&amp;"; break;
@@ -299,7 +297,6 @@ namespace SMPPlusPlus
     {
         for (const char c : text)
         {
-            //TODO: remove inline-style notation
             switch (c)
             {
                 case '&':  out += "&amp;";  break;

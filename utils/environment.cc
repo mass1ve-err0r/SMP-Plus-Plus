@@ -18,7 +18,8 @@ namespace SMPPlusPlus
     // -----------------------------------------------------------------------------
     // Cache singleton
     // -----------------------------------------------------------------------------
-    Environment::Cache& Environment::cache() {
+    Environment::Cache&
+    Environment::cache() {
         static Cache instance;
         return instance;
     }
@@ -26,66 +27,93 @@ namespace SMPPlusPlus
     // -----------------------------------------------------------------------------
     // Internal helpers
     // -----------------------------------------------------------------------------
-    std::string Environment::requireVar(const char* name) {
+    std::string
+    Environment::requireVar(const char* name)
+    {
         const char* val = std::getenv(name);
-        if (!val || val[0] == '\0') {
+
+        if (!val || val[0] == '\0')
+        {
             std::ostringstream oss;
             oss << "[Env] Required environment variable not set: " << name;
             throw std::runtime_error(oss.str());
         }
+
         return std::string(val);
     }
 
-    std::optional<std::string> Environment::optionalVar(const char* name) {
+    std::optional<std::string>
+    Environment::optionalVar(const char* name)
+    {
         const char* val = std::getenv(name);
         if (!val || val[0] == '\0') return std::nullopt;
+
         return std::string(val);
     }
 
-    std::string Environment::optionalVar(const char* name, std::string_view defaultValue) {
+    std::string
+    Environment::optionalVar(const char* name, std::string_view defaultValue)
+    {
         const char* val = std::getenv(name);
         if (!val || val[0] == '\0') return std::string(defaultValue);
+
         return std::string(val);
     }
 
-    uint16_t Environment::optionalVarU16(const char* name, uint16_t defaultValue) {
+    uint16_t
+    Environment::optionalVarU16(const char* name, uint16_t defaultValue) {
         const char* val = std::getenv(name);
+
         if (!val || val[0] == '\0') return defaultValue;
+
         uint16_t result{};
         auto [ptr, ec] = std::from_chars(val, val + std::strlen(val), result);
-        if (ec != std::errc{}) {
-            throw std::runtime_error(
-                std::string("[Env] Invalid integer value for ") + name + ": " + val);
+        if (ec != std::errc{})
+        {
+            throw std::runtime_error(std::string("[Env] Invalid integer value for ") + name + ": " + val);
         }
+
         return result;
     }
 
-    uint32_t Environment::optionalVarU32(const char* name, uint32_t defaultValue) {
+    uint32_t
+    Environment::optionalVarU32(const char* name, uint32_t defaultValue)
+    {
         const char* val = std::getenv(name);
+
         if (!val || val[0] == '\0') return defaultValue;
+
         uint32_t result{};
         auto [ptr, ec] = std::from_chars(val, val + std::strlen(val), result);
-        if (ec != std::errc{}) {
-            throw std::runtime_error(
-                std::string("[Env] Invalid integer value for ") + name + ": " + val);
+        if (ec != std::errc{})
+        {
+            throw std::runtime_error(std::string("[Env] Invalid integer value for ") + name + ": " + val);
         }
+
         return result;
     }
 
-    std::vector<uint8_t> Environment::hexDecode(const std::string& hex) {
+    std::vector<uint8_t>
+    Environment::hexDecode(const std::string& hex) {
         if (hex.size() % 2 != 0)
+        {
             throw std::runtime_error("[Env] Hex string has odd length");
+        }
 
         std::vector<uint8_t> bytes;
         bytes.reserve(hex.size() / 2);
-        for (size_t i = 0; i < hex.size(); i += 2) {
+        for (size_t i = 0; i < hex.size(); i += 2)
+        {
             uint8_t byte{};
             auto [ptr, ec] = std::from_chars(hex.data() + i, hex.data() + i + 2, byte, 16);
             if (ec != std::errc{})
-                throw std::runtime_error(
-                    std::string("[Env] Invalid hex character at position ") + std::to_string(i));
+            {
+                throw std::runtime_error(std::string("[Env] Invalid hex character at position ") + std::to_string(i));
+            }
+
             bytes.push_back(byte);
         }
+
         return bytes;
     }
 
@@ -95,7 +123,9 @@ namespace SMPPlusPlus
     //           postgresql://user:pass@host/dbname   (port defaults to 5432)
     //           postgresql://host/dbname             (no credentials)
     // -----------------------------------------------------------------------------
-    Environment::DbConfig Environment::parseDbUrl(const std::string& url) {
+    Environment::DbConfig
+    Environment::parseDbUrl(const std::string& url)
+    {
         // Regex: postgresql://[user[:pass]@]host[:port]/dbname
         static const std::regex re(
             R"(^postgresql://(?:([^:@]+)(?::([^@]*))?@)?([^:/]+)(?::(\d+))?/(.+)$)",
@@ -103,7 +133,8 @@ namespace SMPPlusPlus
         );
 
         std::smatch m;
-        if (!std::regex_match(url, m, re)) {
+        if (!std::regex_match(url, m, re))
+        {
             throw std::runtime_error(
                 "[Env] SMP_DB_URL is not a valid PostgreSQL URL.\n"
                 "  Expected format: postgresql://user:password@host:port/dbname\n"
@@ -117,14 +148,19 @@ namespace SMPPlusPlus
         cfg.host     = m[3].str();
         cfg.dbname   = m[5].str();
 
-        if (m[4].matched) {
+        if (m[4].matched)
+        {
             uint16_t p{};
             const auto& ps = m[4].str();
             auto [ptr, ec] = std::from_chars(ps.data(), ps.data() + ps.size(), p);
             if (ec != std::errc{})
+            {
                 throw std::runtime_error("[Env] Invalid port in SMP_DB_URL: " + ps);
+            }
+
             cfg.port = p;
-        } else {
+        } else
+        {
             cfg.port = 5432;
         }
 
@@ -138,8 +174,10 @@ namespace SMPPlusPlus
     // -----------------------------------------------------------------------------
     // validate()
     // -----------------------------------------------------------------------------
-    void Environment::validate() {
+    void
+    Environment::validate() {
         auto& c = cache();
+
         if (c.validated) return;
 
         std::vector<std::string> errors;
@@ -153,23 +191,27 @@ namespace SMPPlusPlus
         tryRequire("SMP_DB_URL",         c.dbUrl);
         tryRequire("SMP_ADMIN_PASSWORD", c.adminPassword);
 
-        if (!errors.empty()) {
+        if (!errors.empty())
+        {
             std::ostringstream oss;
             oss << "[Env] Startup aborted - missing required environment variables:\n";
             for (const auto& err : errors) oss << "  - " << err << "\n";
+
             throw std::runtime_error(oss.str());
         }
 
         // Validate master key
         if (c.masterKey.size() != 64)
-            throw std::runtime_error(
-                "[Env] SMP_MASTER_KEY must be exactly 64 hex characters (32 bytes). "
-                "Generate with: openssl rand -hex 32");
+        {
+            throw std::runtime_error("[Env] SMP_MASTER_KEY must be exactly 64 hex characters (32 bytes). Generate with: openssl rand -hex 32");
+        }
 
-        const bool validHex = std::all_of(c.masterKey.begin(), c.masterKey.end(),
-            [](char ch) { return std::isxdigit(static_cast<unsigned char>(ch)); });
+
+        const bool validHex = std::all_of(c.masterKey.begin(), c.masterKey.end(), [](char ch) { return std::isxdigit(static_cast<unsigned char>(ch)); });
         if (!validHex)
+        {
             throw std::runtime_error("[Env] SMP_MASTER_KEY contains non-hex characters");
+        }
 
         // Parse DB URL
         c.db = parseDbUrl(c.dbUrl);
@@ -202,7 +244,8 @@ namespace SMPPlusPlus
         }
 
         c.publicUrl = optionalVar("SMP_PUBLIC_URL", "");
-        if (c.publicUrl.empty()) {
+        if (c.publicUrl.empty())
+        {
             std::cerr << "[Env] WARNING: SMP_PUBLIC_URL not set. "
                          "ServiceGroup hrefs will be incomplete.\n";
         }
@@ -211,26 +254,35 @@ namespace SMPPlusPlus
         c.sessionSecret = sessionSecretOpt.value_or(c.masterKey);
 
         // Validate log level
-        const std::vector<std::string_view> validLevels = {
+        /*
+        const std::vector<std::string_view> validLevels2 = {
             "TRACE", "DEBUG", "INFO", "WARN", "ERROR"
         };
-        if (!std::any_of(validLevels.begin(), validLevels.end(),
-                [&](std::string_view lv) { return lv == c.logLevel; }))
-            throw std::runtime_error(
-                "[Env] SMP_LOG_LEVEL must be one of: TRACE, DEBUG, INFO, WARN, ERROR");
+        */
+        constexpr std::array<std::string_view, 5> validLevels = {
+            "TRACE", "DEBUG", "INFO", "WARN", "ERROR"
+        };
+        if (!std::any_of(validLevels.begin(), validLevels.end(), [&](std::string_view lv) { return lv == c.logLevel; }))
+        {
+            throw std::runtime_error("[Env] SMP_LOG_LEVEL must be one of: TRACE, DEBUG, INFO, WARN, ERROR");
+        }
+
 
         // TLS consistency check
         if (c.tlsCertPath.empty() != c.tlsKeyPath.empty())
-            throw std::runtime_error(
-                "[Env] SMP_TLS_CERT_PATH and SMP_TLS_KEY_PATH must both be set or both be empty");
+        {
+            throw std::runtime_error("[Env] SMP_TLS_CERT_PATH and SMP_TLS_KEY_PATH must both be set or both be empty");
+        }
 
         // TLS is required unless dev mode OR behind a reverse proxy
         if (c.tlsCertPath.empty() && !c.devMode && !c.behindProxy)
+        {
             std::cerr << "[Env] WARNING: TLS not configured, and neither "
                          "SMP_DEV_MODE nor SMP_BEHIND_PROXY is set. "
                          "SMP spec requires HTTPS. "
                          "Set SMP_BEHIND_PROXY=true if running behind nginx/Cloudflare, "
                          "or SMP_DEV_MODE=true for local development.\n";
+        }
 
         c.validated = true;
 
@@ -255,56 +307,103 @@ namespace SMPPlusPlus
     // -----------------------------------------------------------------------------
     // Accessors
     // -----------------------------------------------------------------------------
-    static void assertValidated(const Environment::Cache& c) {
-        if (!c.validated) [[unlikely]] {
+    static void
+    assertValidated(const Environment::Cache& c)
+    {
+        if (!c.validated) [[unlikely]]
+        {
             std::cerr << "[Env] FATAL: Env::validate() must be called before accessing config\n";
             std::abort();
         }
     }
 
-    const std::string& Environment::masterKey() {
+    const std::string&
+    Environment::masterKey()
+    {
         const auto& c = cache(); assertValidated(c); return c.masterKey;
     }
-    const std::string& Environment::dbUrl() {
+
+    const std::string&
+    Environment::dbUrl()
+    {
         const auto& c = cache(); assertValidated(c); return c.dbUrl;
     }
-    const std::string& Environment::adminPassword() {
+
+    const std::string&
+    Environment::adminPassword()
+    {
         const auto& c = cache(); assertValidated(c); return c.adminPassword;
     }
-    uint16_t Environment::port() {
+
+    uint16_t
+    Environment::port()
+    {
         const auto& c = cache(); assertValidated(c); return c.port;
     }
-    const std::string& Environment::logLevel() {
+
+    const std::string&
+    Environment::logLevel()
+    {
         const auto& c = cache(); assertValidated(c); return c.logLevel;
     }
-    const std::string& Environment::sessionSecret() {
+
+    const std::string&
+    Environment::sessionSecret()
+    {
         const auto& c = cache(); assertValidated(c); return c.sessionSecret;
     }
-    const std::string& Environment::tlsCertPath() {
+
+    const std::string&
+    Environment::tlsCertPath()
+    {
         const auto& c = cache(); assertValidated(c); return c.tlsCertPath;
     }
-    const std::string& Environment::tlsKeyPath() {
+
+    const std::string&
+    Environment::tlsKeyPath()
+    {
         const auto& c = cache(); assertValidated(c); return c.tlsKeyPath;
     }
-    uint32_t Environment::workerThreads() {
+
+    uint32_t
+    Environment::workerThreads()
+    {
         const auto& c = cache(); assertValidated(c); return c.workerThreads;
     }
-    const std::string& Environment::publicUrl() {
+
+    const std::string&
+    Environment::publicUrl()
+    {
         const auto& c = cache(); assertValidated(c); return c.publicUrl;
     }
-    bool Environment::devMode() {
+
+    bool
+    Environment::devMode()
+    {
         const auto& c = cache(); assertValidated(c); return c.devMode;
     }
-    bool Environment::behindProxy() {
+
+    bool
+    Environment::behindProxy()
+    {
         const auto& c = cache(); assertValidated(c); return c.behindProxy;
     }
-    bool Environment::tlsEnabled() {
+
+    bool
+    Environment::tlsEnabled()
+    {
         return !tlsCertPath().empty();
     }
-    const Environment::DbConfig& Environment::dbConfig() {
+
+    const Environment::DbConfig&
+    Environment::dbConfig()
+    {
         const auto& c = cache(); assertValidated(c); return c.db;
     }
-    std::vector<uint8_t> Environment::masterKeyBytes() {
+
+    std::vector<uint8_t>
+    Environment::masterKeyBytes()
+    {
         return hexDecode(masterKey());
     }
 
